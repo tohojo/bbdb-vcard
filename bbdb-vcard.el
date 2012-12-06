@@ -5,6 +5,7 @@
 ;; Author: Bert Burgemeister <trebbu@googlemail.com>
 ;; Keywords: data calendar mail news
 ;; URL: http://github.com/trebb/bbdb-vcard
+;; Package-Requires: ((bbdb "3.0"))
 ;; Version: 0.3
 
 ;; This program is free software; you can redistribute it and/or
