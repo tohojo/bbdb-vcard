@@ -402,7 +402,7 @@ in individual files."
              "Write vCards to file: "
              bbdb-vcard-default-dir
              nil nil
-             (format-time-string "%Y-%m-%dT%H:%M.vcf" (current-time))))
+             (format-time-string "%Y-%m-%dT%H%M.vcf" (current-time))))
         (read-file-name "Write current record to vCard file: "
                         bbdb-vcard-default-dir nil nil default-filename))
       all-records-p           ; argument all-records-p
