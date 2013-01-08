@@ -381,7 +381,7 @@ records may be altered."
 
 ;;;###autoload
 (defun bbdb-vcard-export
-  (filename-or-directory all-records-p one-file-per-record-p)
+  (filename-or-directory all-records-p one-file-per-record-p &optional allow-overwrite)
   "From Buffer *BBDB*, write one or more record(s) as vCard(s) to file(s).
 \\<bbdb-mode-map>\
 If \"\\[bbdb-apply-next-command-to-all-records]\\[bbdb-vcard-export]\"\
@@ -420,18 +420,19 @@ in individual files."
                                                     used-up-basenames)))
                     (insert (bbdb-vcard-from record))
                     (bbdb-vcard-write-buffer
-                     (concat filename-or-directory basename))
+                     (concat filename-or-directory basename)
+		     allow-overwrite)
                     (push basename used-up-basenames))))
               (message "Wrote %d vCards to %s"
                        (length used-up-basenames) filename-or-directory))
           (with-temp-buffer     ; all visible BBDB records in one file
             (dolist (record records)
               (insert (bbdb-vcard-from record)))
-            (bbdb-vcard-write-buffer filename-or-directory))))
+            (bbdb-vcard-write-buffer filename-or-directory allow-overwrite))))
     (let ((vcard (bbdb-vcard-from (bbdb-current-record nil)))) ; current record
       (with-temp-buffer
         (insert vcard)
-        (bbdb-vcard-write-buffer filename-or-directory)))))
+        (bbdb-vcard-write-buffer filename-or-directory allow-overwrite)))))
 
 ;;;###autoload
 (defun bbdb-vcard-export-to-kill-ring (all-records-p)
@@ -1077,12 +1078,12 @@ is nil."
   "Concatenate STRINGS and apply `bbdb-vcard-type-canonicalizer' to them."
   (funcall bbdb-vcard-type-canonicalizer (bbdb-join strings "")))
 
-(defun bbdb-vcard-write-buffer (vcard-file-name)
+(defun bbdb-vcard-write-buffer (vcard-file-name &optional allow-overwrite)
   "Write current buffer to VCARD-FILE-NAME.
 Create directories where necessary."
   (make-directory (file-name-directory vcard-file-name) t)
   (let ((buffer-file-coding-system bbdb-vcard-export-coding-system))
-    (write-region nil nil vcard-file-name nil nil nil t)))
+    (write-region nil nil vcard-file-name nil nil nil (not allow-overwrite))))
 
 (defun bbdb-vcard-make-file-name (bbdb-record &optional used-up-basenames)
   "Come up with a vCard filename given a BBDB-RECORD.
