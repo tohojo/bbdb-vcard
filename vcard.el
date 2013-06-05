@@ -473,6 +473,9 @@ US domestic telephone numbers are replaced with international format."
       `(format "%c" (car (read-from-string (format "?\\x%s" ,s))))
     `(format "%c" (string-to-number ,s 16))))
 
+(defun vcard-hexstring-utf8-to-unicode (one two)
+  (decode-coding-string (unibyte-string (string-to-number one 16) (string-to-number two 16)) 'utf-8))
+
 (defun vcard-region-decode-quoted-printable (&optional beg end)
   (save-excursion
     (save-restriction
@@ -482,9 +485,8 @@ US domestic telephone numbers are replaced with international format."
         (while (re-search-forward "=\n" nil t)
           (delete-region (match-beginning 0) (match-end 0)))
         (goto-char (point-min))
-        (while (re-search-forward "=[0-9A-Za-z][0-9A-Za-z]" nil t)
-          (let ((s (buffer-substring (1+ (match-beginning 0)) (match-end 0))))
-            (replace-match (vcard-hexstring-to-ascii s) t t)))))))
+        (while (re-search-forward "=\\([0-9A-Za-z][0-9A-Za-z]\\)=\\([0-9A-Fa-f][0-9A-fa-f]\\)" nil t)
+            (replace-match (vcard-hexstring-utf8-to-unicode (match-string 1) (match-string 2)) t t))))))
 
 (defun vcard-region-decode-base64 (&optional beg end)
   (save-restriction
