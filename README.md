@@ -14,7 +14,7 @@ On a file, a buffer or a region containing one or more vCards, use
 `bbdb-vcard-import-file`, `bbdb-vcard-import-buffer`, or
 `bbdb-vcard-import-region` respectively to import them into BBDB.
 
-In buffer *\*BBDB\**, press v to export the record under point.  Press `* v`
+In the BBDB buffer, press `v` to export the record under point.  Press `* v`
 to export all records in buffer into one vCard file.  Press `* C-u v` to
 export them into one file each.
 
@@ -47,17 +47,19 @@ First checkout the repository:
 git clone git://github.com/vgeddes/bbdb-vcard.git
 ```
 
-Compile and Install:
+Compile and Install with the included `Makefile`. Replace the parameters
+`EMACS` and `PREFIX` as required for your environment
 
 ```sh
-make EMACS=EMACS_BIN
-make install EMACS=EMACS_BIN
+make EMACS=/usr/bin/emacs
+make install PREFIX=/usr/local
 ```
 
 Then add this to your init file:
 
 ```lisp
-(add-to-list 'load-path "/path/to/bbdb-vcard")
+# if bbdb-vcard is not installed in a standard site-lisp folder 
+# (add-to-list 'load-path "/path/to/bbdb-vcard")
 (require 'bbdb-vcard)
 ```
 
@@ -67,10 +69,11 @@ For a full treatise on the inner workings of bbdb-vcard, read the
 included Info documentation.
 
 Below is a mapping of vCard entities to their BBDB equivalents:
+
 ```
 +-------------------------+----------------------------------------+
-| *VCARD TYPE;PARAMETERS* | *STORAGE IN BBDB*                      |
-| *PARAMETERS*            |                                        |
+| VCARD TYPE;PARAMETERS   | STORAGE IN BBDB                        |
+|                         |                                        |
 |-------------------------+----------------------------------------|
 | VERSION                 | -                                      |
 |-------------------------+----------------------------------------|
