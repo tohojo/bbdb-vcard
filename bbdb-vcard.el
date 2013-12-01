@@ -393,7 +393,7 @@ in individual files."
   (interactive
    (let ((default-filename              ; argument filename-or-directory
            (bbdb-vcard-make-file-name (bbdb-current-record nil)))
-         (all-records-p (bbdb-do-all-records-p)))
+         (all-records-p (bbdb-do-all-records)))
      (list
       (if all-records-p
           (if current-prefix-arg
@@ -444,7 +444,7 @@ If \"\\[bbdb-apply-next-command-to-all-records]\
 is used instead of simply \"\\[bbdb-vcard-export-to-kill-ring]\", \
 then export all records currently in
 the *BBDB* buffer."
-  (interactive (let ((all-records-p (bbdb-do-all-records-p)))
+  (interactive (let ((all-records-p (bbdb-do-all-records)))
                  (list all-records-p)))
   (if all-records-p
       (let ((records (progn (set-buffer bbdb-buffer-name)
@@ -471,17 +471,19 @@ When VCARDS is nil, return nil.  Otherwise, return t."
     ;; endings.
     (while (re-search-forward "\r\n" nil t)
       (replace-match "\n" nil nil nil 1))
-    (setf (buffer-string) (bbdb-vcard-unfold-lines (buffer-string)))
-    (goto-char (point-min))
-    (while (re-search-forward
-            "^\\([[:alnum:]-]*\\.\\)?*BEGIN:VCARD[\n[:print:][:cntrl:]]*?\\(^\\([[:alnum:]-]*\\.\\)?END:VCARD\\)"
-            nil t)
-      (let ((vcard (match-string 0)))
-        (if (string= "3.0" (bbdb-vcard-version-of vcard))
-            (funcall vcard-processor vcard)
-          (funcall vcard-processor      ; probably a v2.1 vCard
-                   (bbdb-vcard-unfold-lines
-                    (bbdb-vcard-convert-to-3.0 vcard))))))))
+    (let ((vcards-normalized (bbdb-vcard-unfold-lines (buffer-string))))
+      (erase-buffer)
+      (insert vcards-normalized)
+      (goto-char (point-min))
+      (while (re-search-forward
+              "^\\([[:alnum:]-]*\\.\\)?*BEGIN:VCARD[\n[:print:][:cntrl:]]*?\\(^\\([[:alnum:]-]*\\.\\)?END:VCARD\\)"
+              nil t)
+        (let ((vcard (match-string 0)))
+          (if (string= "3.0" (bbdb-vcard-version-of vcard))
+              (funcall vcard-processor vcard)
+            (funcall vcard-processor      ; probably a v2.1 vCard
+                     (bbdb-vcard-unfold-lines
+                      (bbdb-vcard-convert-to-3.0 vcard)))))))))
 
 (defun bbdb-vcard-version-of (vcard)
   "Return version number string of VCARD."
@@ -623,18 +625,18 @@ Extend existing BBDB records where possible."
        bbdb-record
        (remove (concat (bbdb-record-firstname bbdb-record)
                        " " (bbdb-record-lastname bbdb-record))
-               (reduce (lambda (x y) (union x y :test 'string=))
+               (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
                        (list vcard-nicknames
                              other-names
                              vcard-formatted-names
                              bbdb-akas))))
 ;      (when vcard-org (bbdb-record-set-organization bbdb-record vcard-org))
       (bbdb-record-set-mail
-       bbdb-record (union vcard-email bbdb-nets :test 'string=))
+       bbdb-record (cl-union vcard-email bbdb-nets :test 'string=))
       (bbdb-record-set-address
-       bbdb-record (union vcard-adrs bbdb-addresses :test 'equal))
+       bbdb-record (cl-union vcard-adrs bbdb-addresses :test 'equal))
       (bbdb-record-set-phone bbdb-record
-                              (union vcard-tels bbdb-phones :test 'equal))
+                              (cl-union vcard-tels bbdb-phones :test 'equal))
       ;; prepare bbdb's notes:
       (when vcard-url (push (cons 'www vcard-url) bbdb-raw-notes))
       (when vcard-notes
@@ -683,7 +685,7 @@ Extend existing BBDB records where possible."
           (push (bbdb-vcard-remove-x-bbdb other-vcard-type) bbdb-raw-notes)))
       (bbdb-record-set-xfields
        bbdb-record
-       (remove-duplicates bbdb-raw-notes :test 'equal :from-end t))
+       (cl-remove-duplicates bbdb-raw-notes :test 'equal :from-end t))
       (bbdb-change-record bbdb-record t t)
       ;; Tell the user what we've done.
       (message "%s %s %s -- %s"
@@ -714,11 +716,11 @@ Extend existing BBDB records where possible."
             "\\([0-9]\\{4\\}-[01][0-9]-[0-3][0-9][t:0-9]*[-+z:0-9]*\\)\\([[:blank:]]+birthday\\)?\\'")
            (birthday
             (car (bbdb-vcard-split-structured-text
-                  (find-if (lambda (x) (string-match birthday-regexp x))
+                  (cl-find-if (lambda (x) (string-match birthday-regexp x))
                            raw-anniversaries)
                   " " t)))
            (other-anniversaries
-            (remove-if (lambda (x) (string-match birthday-regexp x))
+            (cl-remove-if (lambda (x) (string-match birthday-regexp x))
                        raw-anniversaries :count 1))
            (creation-date (bbdb-record-field record 'creation-date))
            (mail-aliases (bbdb-record-xfield record bbdb-mail-alias-field))
@@ -796,7 +798,7 @@ v3.0 mandatory elements N and FN."
     (with-temp-buffer
       (bbdb-vcard-insert-vcard-element "BEGIN" "VCARD")
       (bbdb-vcard-insert-vcard-element "VERSION" "3.0")
-      (dolist (element (remove*
+      (dolist (element (cl-remove
                         "VERSION" (vcard-parse-string vcard)
                         :key (lambda (x) (upcase (caar x))) :test 'string=))
         (bbdb-vcard-insert-vcard-element
@@ -911,24 +913,28 @@ newline if TYPE is nil."
                     (insert "\n")
                     (buffer-string)))
 
+(defun bbdb-escape (x)
+  (replace-regexp-in-string ; from 2.1 conversion:
+   "\r" "" (replace-regexp-in-string
+            "\n" "\\\\n" (replace-regexp-in-string
+                          "\\(\\)[,;\\]" "\\\\" (or x "")
+                          nil nil 1))))
+
+(defun bbdb-unescape (x)
+  (replace-regexp-in-string
+   "\\([\\\\]\\)\\([,;\\]\\)" ""
+   (replace-regexp-in-string "\\\\n" "\n" x)
+   nil nil 1))
+
 (defun bbdb-vcard-unescape-strings (escaped-strings)
   "Unescape escaped `;', `,', `\\', and newlines in ESCAPED-STRINGS.
 ESCAPED-STRINGS may be a string or a sequence of strings."
-  (flet ((unescape (x) (replace-regexp-in-string
-                        "\\([\\\\]\\)\\([,;\\]\\)" ""
-                        (replace-regexp-in-string "\\\\n" "\n" x)
-                        nil nil 1)))
-    (bbdb-vcard-process-strings 'unescape escaped-strings)))
+    (bbdb-vcard-process-strings 'bbdb-unescape escaped-strings))
 
 (defun bbdb-vcard-escape-strings (unescaped-strings )
   "Escape `;', `,', `\\', and newlines in UNESCAPED-STRINGS.
 UNESCAPED-STRINGS may be a string or a sequence of strings."
-  (flet ((escape (x) (replace-regexp-in-string ; from 2.1 conversion:
-                      "\r" "" (replace-regexp-in-string
-                               "\n" "\\\\n" (replace-regexp-in-string
-                                             "\\(\\)[,;\\]" "\\\\" (or x "")
-                                             nil nil 1)))))
-    (bbdb-vcard-process-strings 'escape unescaped-strings)))
+    (bbdb-vcard-process-strings 'bbdb-escape unescaped-strings))
 
 (defun bbdb-vcard-process-strings (string-processor strings)
   "Apply STRING-PROCESSOR to STRINGS.
@@ -983,17 +989,17 @@ COUNTRY)."
   (let ((adr-type (or (cdr (assoc "type" vcard-adr)) ""))
         (streets         ; all comma-separated sub-elements of
          (remove         ; Postbox, Extended, Streets go into one list
-          "" (reduce 'append
+          "" (cl-reduce 'append
                      (mapcar (lambda (x)
                                (bbdb-vcard-split-structured-text x "," t))
-                             (subseq (cdr (assoc "value" vcard-adr))
+                             (cl-subseq (cdr (assoc "value" vcard-adr))
                                      0 3)))))
         (non-streets          ; turn comma-separated substructure into
          (mapcar              ; newline-separated text
           (lambda (x) (bbdb-join
                        (bbdb-vcard-split-structured-text x "," t)
                        "\n"))
-          (subseq (cdr (assoc "value" vcard-adr))
+          (cl-subseq (cdr (assoc "value" vcard-adr))
                   3 nil))))
     (vector (bbdb-vcard-translate adr-type)
             streets
@@ -1102,7 +1108,7 @@ Make it unique against the list USED-UP-BASENAMES."
                      (concat "-" (number-to-string unique-number)))
                    ".vcf"))
             used-up-basenames)
-      (incf unique-number))
+      (cl-incf unique-number))
     filename))
 
 (defmacro bbdb-vcard-search-intersection
