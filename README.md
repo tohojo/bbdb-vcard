@@ -67,7 +67,7 @@ For a full treatise on the inner workings of bbdb-vcard, read the
 included Info documentation.
 
 Below is a mapping of vCard entities to their BBDB equivalents:
-
+```
 +-------------------------+----------------------------------------+
 | *VCARD TYPE;PARAMETERS* | *STORAGE IN BBDB*                      |
 | *PARAMETERS*            |                                        |
@@ -138,4 +138,4 @@ Below is a mapping of vCard entities to their BBDB equivalents:
 |-------------------------+----------------------------------------|
 | ANYJUNK;a=x;b=y         | Notes<anyjunk;a=x;b=y                  |
 +-------------------------+----------------------------------------+
-
+```
