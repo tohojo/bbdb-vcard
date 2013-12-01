@@ -2,7 +2,7 @@ PREFIX  ?= /usr/local
 datarootdir ?= $(PREFIX)/share
 lispdir ?= $(datarootdir)/emacs/site-lisp/bbdb-vcard
 infodir ?= $(datarootdir)/info
-docdir  ?= $(datarootdir)/doc/magit
+docdir  ?= $(datarootdir)/doc/bbdb-vcard
 execdir ?= $(PREFIX)/bin
 
 ELS  = bbdb-vcard.el vcard.el
@@ -18,10 +18,7 @@ INSTALL_INFO ?= install-info
 
 EMACS  ?= $(shell which emacs)
 BATCH   = $(EMACS) $(EFLAGS) -batch -L .
-BATCHE  = $(BATCH) -eval
 BATCHC  = $(BATCH) -f batch-byte-compile
-
-VERSION=$(shell test -e .git && git describe --tags --dirty 2> /dev/null)
 
 all: $(ELCS) bbdb-vcard.info
 
@@ -42,11 +39,7 @@ install-docs: bbdb-vcard.info
 	$(CP) $< $(DESTDIR)$(infodir)
 	$(INSTALL_INFO) --info-dir=$(DESTDIR)$(infodir) $(DESTDIR)$(infodir)/$<
 	$(MKDIR) $(DESTDIR)$(docdir)
-	$(CP) COPYING $(DESTDIR)$(docdir)
+	$(CP) COPYING README.md $(DESTDIR)$(docdir)
 
-bbdb-vcard-$(VERSION).tar.gz: $(DIST_FILES)
-	$(MKDIR) bbdb-vcard-$(VERSION)/bin
-	$(CP) $(DIST_FILES) bbdb-vcard-$(VERSION)
-	$(CPBIN) $(DIST_FILES_BIN) bbdb-vcard-$(VERSION)/bin
-	tar -cvz --mtime=./bbdb-vcard-$(VERSION) -f bbdb-vcard-$(VERSION).tar.gz bbdb-vcard-$(VERSION)
-	$(RMDIR) bbdb-vcard-$(VERSION)
+clean:
+	rm -f *.elc bbdb-vcard.info
