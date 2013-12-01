@@ -89,8 +89,8 @@
 ;;
 ;; An existing BBDB record is extended by new information from a vCard
 ;;
-;;   (a) if name and company and an email address match
-;;   (b) or if name and company match
+;;   (a) if name and organization and an email address match
+;;   (b) or if name and organization match
 ;;   (c) or if name and an email address match
 ;;   (d) or if name and birthday match
 ;;   (e) or if name and a phone number match.
@@ -101,7 +101,7 @@
 ;; record created.
 ;;
 ;; In cases (c), (d), and (e), if the vCard has ORG defined, this ORG
-;; would overwrite an existing Company in BBDB.
+;; would overwrite an existing Organization in BBDB.
 ;;
 ;; Phone numbers are always imported as strings.
 ;;
@@ -160,7 +160,7 @@
 ;; | NICKNAME             | AKAs (append)                          |
 ;; |----------------------+----------------------------------------|
 ;; | ORG                  | First occurrence:                      |
-;; |                      | Company                                |
+;; |                      | Organization                                |
 ;; |                      |                                        |
 ;; |                      | Rest:                                  |
 ;; |                      | Notes<org                              |
@@ -259,7 +259,7 @@
 (require 'vcard)
 (require 'bbdb-com)
 
-(defconst bbdb-vcard-version "0.3"
+(defconst bbdb-vcard-version "0.4.1"
   "Version of the vCard importer/exporter.
 The major part increases on user-visible changes.")
 
@@ -422,7 +422,7 @@ in individual files."
                     (insert (bbdb-vcard-from record))
                     (bbdb-vcard-write-buffer
                      (concat filename-or-directory basename)
-		     allow-overwrite)
+                     allow-overwrite)
                     (push basename used-up-basenames))))
               (message "Wrote %d vCards to %s"
                        (length used-up-basenames) filename-or-directory))
@@ -456,9 +456,7 @@ the *BBDB* buffer."
     (kill-new (bbdb-vcard-from (bbdb-current-record nil)))
     (message "Saved record as vCard")))
 
-;;;###autoload (define-key bbdb-mode-map [(v)] 'bbdb-vcard-export)
 (define-key bbdb-mode-map [(v)] 'bbdb-vcard-export)
-;;;###autoload (define-key bbdb-mode-map [(V)] 'bbdb-vcard-export-to-kill-ring)
 (define-key bbdb-mode-map [(V)] 'bbdb-vcard-export-to-kill-ring)
 
 
@@ -521,12 +519,12 @@ Extend existing BBDB records where possible."
              (bbdb-vcard-split-structured-text
               (car (bbdb-vcard-values-of-type "NICKNAME" "value"))
               "," t)))
-           ;; Company suitable for storing in BBDB:
+           ;; Organization suitable for storing in BBDB:
            (vcard-org
             (bbdb-vcard-unescape-strings
              (bbdb-vcard-unvcardize-org
               (car (bbdb-vcard-values-of-type "ORG" "value" t t)))))
-           ;; Company to search for in BBDB now:
+           ;; Organization to search for in BBDB now:
            (org-to-search-for vcard-org) ; sorry
            ;; Email suitable for storing in BBDB:
            (vcard-email (bbdb-vcard-values-of-type "EMAIL" "value"))
@@ -573,27 +571,27 @@ Extend existing BBDB records where possible."
            (bbdb-record
             (or
              ;; Try to find an existing one ...
-             ;; (a) try company and net and name:
+             ;; (a) try organization and net and name:
              (car (and bbdb-vcard-try-merge
                        (bbdb-vcard-search-intersection
                         (bbdb-records)
                         name-to-search-for
                         org-to-search-for email-to-search-for)))
-             ;; (b) try company and name:
+             ;; (b) try organization and name:
              (car (and bbdb-vcard-try-merge
                        (bbdb-vcard-search-intersection
                         (bbdb-records) name-to-search-for org-to-search-for)))
-             ;; (c) try net and name; we may change company here:
+             ;; (c) try net and name; we may change organization here:
              (car (and bbdb-vcard-try-merge
                        (bbdb-vcard-search-intersection
                         (bbdb-records)
                         name-to-search-for nil email-to-search-for)))
-             ;; (d) try birthday and name; we may change company here:
+             ;; (d) try birthday and name; we may change organization here:
              (car (and bbdb-vcard-try-merge
                        (bbdb-vcard-search-intersection
                         (bbdb-records)
                         name-to-search-for nil nil bday-to-search-for)))
-             ;; (e) try phone and name; we may change company here:
+             ;; (e) try phone and name; we may change organization here:
              (car (and bbdb-vcard-try-merge
                        (bbdb-vcard-search-intersection
                         (bbdb-records)
@@ -603,7 +601,7 @@ Extend existing BBDB records where possible."
                (bbdb-record-set-cache fresh-record
                                       (make-vector bbdb-cache-length nil))
                (if vcard-rev            ; For fresh records,
-                   (bbdb-record-putprop ; set creation-date from vcard-rev
+                   (bbdb-record-set-field ; set creation-date from vcard-rev
                     fresh-record 'creation-date vcard-rev)
                  (run-hook-with-args 'bbdb-create-hook fresh-record))
                (setq record-freshness-info "BBDB record added:") ; user info
@@ -612,7 +610,7 @@ Extend existing BBDB records where possible."
            (bbdb-addresses (bbdb-record-address bbdb-record))
            (bbdb-phones (bbdb-record-phone bbdb-record))
            (bbdb-nets (bbdb-record-mail bbdb-record))
-           (bbdb-raw-notes (bbdb-record-Notes bbdb-record))
+           (bbdb-raw-notes (bbdb-record-xfields bbdb-record))
            notes
            other-vcard-type)
       (bbdb-vcard-elements-of-type "BEGIN")   ; get rid of delimiter
@@ -683,7 +681,7 @@ Extend existing BBDB records where possible."
                     (and bbdb-vcard-skip-valueless
                          (zerop (length (cdr other-vcard-type)))))
           (push (bbdb-vcard-remove-x-bbdb other-vcard-type) bbdb-raw-notes)))
-      (bbdb-record-set-Notes
+      (bbdb-record-set-xfields
        bbdb-record
        (remove-duplicates bbdb-raw-notes :test 'equal :from-end t))
       (bbdb-change-record bbdb-record t t)
@@ -702,16 +700,16 @@ Extend existing BBDB records where possible."
            (first-name (bbdb-record-firstname record))
            (last-name (bbdb-record-lastname record))
            (aka (bbdb-record-aka record))
-           (company (bbdb-record-company record))
+           (organization (bbdb-record-organization record))
            (net (bbdb-record-mail record))
            (phones (bbdb-record-phone record))
            (addresses (bbdb-record-address record))
-           (www (bbdb-get-field record 'www))
+           (www (bbdb-record-field record 'www))
            (notes
-            (bbdb-vcard-split-structured-text (bbdb-record-notes record)
+            (bbdb-vcard-split-structured-text (bbdb-record-xfields record)
                                               ";\n" t))
            (raw-anniversaries (bbdb-vcard-split-structured-text
-                               (bbdb-get-field record 'anniversary) "\n" t))
+                               (bbdb-record-field record 'anniversary) "\n" t))
            (birthday-regexp
             "\\([0-9]\\{4\\}-[01][0-9]-[0-3][0-9][t:0-9]*[-+z:0-9]*\\)\\([[:blank:]]+birthday\\)?\\'")
            (birthday
@@ -722,10 +720,9 @@ Extend existing BBDB records where possible."
            (other-anniversaries
             (remove-if (lambda (x) (string-match birthday-regexp x))
                        raw-anniversaries :count 1))
-           (creation-date (bbdb-get-field record 'creation-date))
-           (mail-aliases (bbdb-record-getprop record
-                                              bbdb-define-all-aliases-field))
-           (raw-notes (copy-alist (bbdb-record-raw-notes record))))
+           (creation-date (bbdb-record-field record 'creation-date))
+           (mail-aliases (bbdb-record-xfield record bbdb-mail-alias-field))
+           (raw-notes (copy-alist (bbdb-record-xfields record))))
       (bbdb-vcard-insert-vcard-element "BEGIN" "VCARD")
       (bbdb-vcard-insert-vcard-element "VERSION" "3.0")
       (bbdb-vcard-insert-vcard-element "FN" (bbdb-vcard-escape-strings name))
@@ -736,7 +733,7 @@ Extend existing BBDB records where possible."
       (bbdb-vcard-insert-vcard-element
        "NICKNAME" (bbdb-join (bbdb-vcard-escape-strings aka) ","))
       (bbdb-vcard-insert-vcard-element
-       "ORG" (bbdb-vcard-escape-strings company))
+       "ORG" (bbdb-vcard-escape-strings organization))
       (dolist (mail net)
         (bbdb-vcard-insert-vcard-element
          "EMAIL;TYPE=INTERNET" (bbdb-vcard-escape-strings mail)))
@@ -745,14 +742,14 @@ Extend existing BBDB records where possible."
          (concat
           "TEL;TYPE="
           (bbdb-vcard-escape-strings
-           (bbdb-vcard-translate (bbdb-phone-location phone) t)))
+           (bbdb-vcard-translate (bbdb-phone-label phone) t)))
          (bbdb-vcard-escape-strings (bbdb-phone-string phone))))
       (dolist (address addresses)
         (bbdb-vcard-insert-vcard-element
          (concat
           "ADR;TYPE="
           (bbdb-vcard-escape-strings
-           (bbdb-vcard-translate (bbdb-address-location address) t)))
+           (bbdb-vcard-translate (bbdb-address-label address) t)))
          ";;"                           ; no Postbox, no Extended
          (bbdb-join (bbdb-vcard-escape-strings (bbdb-address-streets address))
                     ",")
@@ -761,7 +758,7 @@ Extend existing BBDB records where possible."
          ";" (bbdb-vcard-vcardize-address-element
               (bbdb-vcard-escape-strings (bbdb-address-state address)))
          ";" (bbdb-vcard-vcardize-address-element
-              (bbdb-vcard-escape-strings (bbdb-address-zip address)))
+              (bbdb-vcard-escape-strings (bbdb-address-postcode address)))
          ";" (bbdb-vcard-vcardize-address-element
               (bbdb-vcard-escape-strings (bbdb-address-country address)))))
       (bbdb-vcard-insert-vcard-element "URL" www)
@@ -976,12 +973,12 @@ STRINGS may be a string or a sequence of strings."
   "Convert VCARD-ORG (type ORG), which may be a list, into a string."
   (if (or (null vcard-org)
           (stringp vcard-org)) ; unstructured, probably non-standard ORG
-      vcard-org                ; Company, unit 1, unit 2...
+      vcard-org                ; Organization, unit 1, unit 2...
     (bbdb-join vcard-org "\n")))
 
 (defun bbdb-vcard-unvcardize-adr (vcard-adr)
   "Convert VCARD-ADR into BBDB format.
-Turn a vCard element of type ADR into (TYPE STREETS CITY STATE ZIP
+Turn a vCard element of type ADR into (TYPE STREETS CITY STATE POSTCODE
 COUNTRY)."
   (let ((adr-type (or (cdr (assoc "type" vcard-adr)) ""))
         (streets         ; all comma-separated sub-elements of
@@ -1002,7 +999,7 @@ COUNTRY)."
             streets
             (or (elt non-streets 0) "")    ; City
             (or (elt non-streets 1) "")    ; State
-            (or (elt non-streets 2) "")    ; Zip
+            (or (elt non-streets 2) "")    ; Postcode
             (or (elt non-streets 3) "")))) ; Country
 
 (defun bbdb-vcard-unvcardize-date-time (date-time)
@@ -1109,7 +1106,7 @@ Make it unique against the list USED-UP-BASENAMES."
     filename))
 
 (defmacro bbdb-vcard-search-intersection
-  (records &optional name company net notes phone)
+  (records &optional name organization net notes phone)
   "Search RECORDS for records that match each non-nil argument."
   (let*
       ((phone-search
@@ -1121,12 +1118,12 @@ Make it unique against the list USED-UP-BASENAMES."
        (net-search
         (if net `(when ,net (bbdb-search ,notes-search nil nil ,net))
           notes-search))
-       (company-search
-        (if company `(when ,company (bbdb-search ,net-search nil ,company))
+       (organization-search
+        (if organization `(when ,organization (bbdb-search ,net-search nil ,organization))
           net-search))
        (name-search
-        (if name `(when ,name (bbdb-search ,company-search ,name))
-          company-search)))
+        (if name `(when ,name (bbdb-search ,organization-search ,name))
+          organization-search)))
     name-search))
 
 (defun bbdb-join (list separator)
