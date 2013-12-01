@@ -7,8 +7,8 @@
 ;;
 ;; For the sake of minimality, not all test cases are rfc compliant.
 
-
 (require 'bbdb-vcard)
+(require 'cl-lib)
 
 (defun bbdb-vcard-import-test
   (vcard bbdb-entry search-name
@@ -28,12 +28,12 @@ nil, creation-date are not taken into account."
     (unless check-creation-date-p
       (setf (cdr (assoc 'creation-date (elt bbdb-search-result 7))) "2010-03-04"
             (cdr (assoc 'creation-date (elt bbdb-entry 7))) "2010-03-04"))
-    (unless (equal (subseq bbdb-search-result 0 8)
-                   (subseq bbdb-entry 0 8))
+    (unless (equal (cl-subseq bbdb-search-result 0 8)
+                   (cl-subseq bbdb-entry 0 8))
       (princ "\nTest failed:\n" (get-buffer-create "bbdb-vcard-test-result"))
       (prin1 vcard (get-buffer-create "bbdb-vcard-test-result"))
       (princ "\nwas stored as\n" (get-buffer-create "bbdb-vcard-test-result"))
-      (prin1 (subseq bbdb-search-result 0 8)
+      (prin1 (cl-subseq bbdb-search-result 0 8)
              (get-buffer-create "bbdb-vcard-test-result"))
       (princ "\nbut was expected as\n" (get-buffer-create "bbdb-vcard-test-result"))
       (prin1 bbdb-entry (get-buffer-create "bbdb-vcard-test-result")))))
@@ -45,14 +45,14 @@ comparable after re-import."
     (setq notes (remove-alist 'notes 'creation-date))
     (sort
      notes
-     '(lambda (x y) (if (string= (symbol-name (car x)) (symbol-name (car y)))
+     #'(lambda (x y) (if (string= (symbol-name (car x)) (symbol-name (car y)))
                         (string< (cdr x) (cdr y))
                       (string< (symbol-name (car x)) (symbol-name (car y))))))))
 
 (defun bbdb-vcard-normalize-record (record)
   "Make BBDB RECORD comparable by deleting certain things and sorting others."
   (setf (elt record 6) (bbdb-vcard-normalize-notes (elt record 7)))
-  (subseq record 0 7))
+  (cl-subseq record 0 7))
 
 (defun bbdb-vcard-compare-bbdbs (first-bbdb second-bbdb)
   "Compare two BBDB record lists. Tell about mismatches in buffer
@@ -123,10 +123,11 @@ X-foo:extended type 1
 END:VCARD
 "
  ["First1" "Last1"
+  nil
   ("Firsty1")
-  "Company1
+  ("Company1
 Unit1
-Subunit1"
+Subunit1")
   (["Office" "+11111111"])
   (["Office"
     ("Box111" "Room 111" "First Street" "First Corner")
@@ -428,9 +429,9 @@ U.S.A.")
  nil nil t)
 
 
-(bbdb-vcard-import-test 
+(bbdb-vcard-import-test
  "
-** Re-use of existing BBDB entries. 
+** Re-use of existing BBDB entries.
 *** N, ORG, EMAIL
 ------------------------------------------------------------
 BEGIN:VCARD
@@ -1662,7 +1663,7 @@ END:VCARD
   (["Office" ("1234 North Street") "Anytown" "TX 751234" "" "United States of America"])
   ("jdoe@nowhere.com")
   ((label\;type=work . "1234 North Street
-Anytown, TX 751234 
+Anytown, TX 751234
 United States of America")
    (title . "President")
    (notes . "This is a note associated with this contact
