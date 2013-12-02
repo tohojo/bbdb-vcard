@@ -32,19 +32,10 @@
 
 ;;; Commentary:
 ;;
-;; Purpose
-;; =======
-;;
 ;; Import and export of vCards as defined in RFC 2425 and RFC 2426
-;; to/from The Insidious Big Brother Database (BBDB).
+;; to/from The Insidious Big Brother Database (BBDB) v3.
 ;;
-;; Installation
-;; ============
-;;
-;; Put this file and file vcard.el into your `load-path' and add the
-;; following line to your Emacs initialization file:
-;;
-;;   (require 'bbdb-vcard)
+;; For full documentation, refer to the BBDB vCard info manual.
 ;;
 
 ;;; Code:
@@ -60,7 +51,7 @@ The major part increases on user-visible changes.")
 
 
 
-;;;; User Variables
+;;; Custom Variables:
 
 (defgroup bbdb-vcard nil
   "Customizations for vCards"
@@ -169,7 +160,7 @@ Existing BBDB records may be altered."
   "Import vCards from VCARD-FILE into BBDB.
 If VCARD-FILE is a wildcard, import each matching file.  Existing BBDB
 records may be altered."
-  (interactive "FvCard file (or wildcard): ")
+  (interactive "vCard file (or wildcard): ")
   (dolist (vcard-file (file-expand-wildcards vcard-file))
     (with-temp-buffer
       (insert-file-contents vcard-file)
@@ -907,21 +898,26 @@ Make it unique against the list USED-UP-BASENAMES."
     filename))
 
 (defmacro bbdb-vcard-search-intersection
-  (records &optional name organization net notes phone)
+  (records &optional name organization mail xfields phone)
   "Search RECORDS for records that match each non-nil argument."
   (let*
       ((phone-search
-        (if phone `(when ,phone (bbdb-search ,records nil nil nil nil ,phone))
+        (if phone `(when ,phone
+                     (bbdb-search ,records nil nil nil nil ,phone nil))
           records))
-       (notes-search
-        (if notes `(when ,notes (bbdb-search ,phone-search nil nil nil ,notes))
+       (xfields-search
+        (if xfields `(when ,notes
+                       (bbdb-search ,phone-search nil nil nil ,xfields nil nil))
           phone-search))
-       (net-search
-        (if net `(when ,net (bbdb-search ,notes-search nil nil ,net))
+       (mail-search
+        (if mail `(when ,net
+                    (bbdb-search ,notes-search nil nil ,mail nil nil nil))
           notes-search))
        (organization-search
-        (if organization `(when ,organization (bbdb-search ,net-search nil ,organization))
-          net-search))
+        (if organization `(when ,organization
+                            (bbdb-search
+                             ,mail-search nil ,organization nil nil nil nil nil))
+          mail-search))
        (name-search
         (if name `(when ,name (bbdb-search ,organization-search ,name))
           organization-search)))
