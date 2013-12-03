@@ -21,8 +21,6 @@ export them into one file each.
 To put one or all vCard(s) into the kill ring, press `V` or `* V`
 respectively.
 
-Refer to the Commentary in file bbdb-vcard.el for further information.
-
 ## Installation
 
 ### Dependencies
@@ -71,74 +69,4 @@ included Info documentation.
 Below is a mapping of vCard entities to their BBDB equivalents:
 
 ```
-+-------------------------+----------------------------------------+
-| VCARD TYPE;PARAMETERS   | STORAGE IN BBDB                        |
-|                         |                                        |
-|-------------------------+----------------------------------------|
-| VERSION                 | -                                      |
-|-------------------------+----------------------------------------|
-| N                       | First occurrence:                      |
-|                         | Firstname                              |
-|                         | Lastname                               |
-|                         |                                        |
-|                         | Rest:                                  |
-|                         | AKAs (append)                          |
-|-------------------------+----------------------------------------|
-| FN                      | AKAs (append)                          |
-| NICKNAME                | AKAs (append)                          |
-|-------------------------+----------------------------------------|
-| ORG                     | First occurrence:                      |
-|                         | Organization                           |
-|                         |                                        |
-|                         | Rest:                                  |
-|                         | Notes<org                              |
-|                         | (repeatedly)                           |
-|-------------------------+----------------------------------------|
-| ADR;TYPE=x,HOME,y       | Addresses<Home                         |
-| ADR;TYPE=x;TYPE=HOME    | Addresses<Home                         |
-| ADR;TYPE=x,WORK,y       | Addresses<Office                       |
-| ADR;TYPE=x;TYPE=WORK    | Addresses<Office                       |
-| ADR;TYPE=x,y,z          | Addresses<x,y,z                        |
-| ADR;TYPE=x;TYPE=y       | Addresses<x,y                          |
-| ADR                     | Addresses<Office                       |
-|-------------------------+----------------------------------------|
-| TEL;TYPE=x,HOME,y       | Phones<Home (append)                   |
-| TEL;TYPE=x;TYPE=HOME    | Phones<Home (append)                   |
-| TEL;TYPE=x,WORK,y       | Phones<Office (append)                 |
-| TEL;TYPE=x;TYPE=WORK    | Phones<Office (append)                 |
-| TEL;TYPE=x,CELL,y       | Phones<Mobile (append)                 |
-| TEL;TYPE=x;TYPE=CELL    | Phones<Mobile (append)                 |
-| TEL;TYPE=x,y,z          | Phones<x,y,z (append)                  |
-| TEL;TYPE=x;TYPE=y       | Phones<x,y (append)                    |
-| TEL                     | Phones<Office (append)                 |
-|-------------------------+----------------------------------------|
-| EMAIL;TYPE=x,y,z        | Net-Addresses (append)                 |
-| URL                     | Notes<www                              |
-|-------------------------+----------------------------------------|
-| BDAY                    | Notes<anniversary (append as birthday) |
-| X-BBDB-ANNIVERSARY      | Notes<anniversary (append)             |
-|-------------------------+----------------------------------------|
-| NOTE                    | Notes<notes (append)                   |
-| REV                     | Notes<creation-date                    |
-| CATEGORIES              | Notes<mail-alias (append)              |
-| SORT-STRING             | Notes<sort-string                      |
-| KEY                     | Notes<key                              |
-| GEO                     | Notes<geo                              |
-| TZ                      | Notes<tz                               |
-| PHOTO                   | Notes<photo                            |
-| LABEL                   | Notes<label                            |
-| LOGO                    | Notes<logo                             |
-| SOUND                   | Notes<sound                            |
-| TITLE                   | Notes<title                            |
-| ROLE                    | Notes<role                             |
-| AGENT                   | Notes<agent                            |
-| MAILER                  | Notes<mailer                           |
-| UID                     | Notes<uid                              |
-| PRODID                  | Notes<prodid                           |
-| CLASS                   | Notes<class                            |
-| X-foo                   | Notes<x-foo                            |
-| X-BBDB-bar              | Notes<bar                              |
-|-------------------------+----------------------------------------|
-| ANYJUNK;a=x;b=y         | Notes<anyjunk;a=x;b=y                  |
-+-------------------------+----------------------------------------+
 ```
