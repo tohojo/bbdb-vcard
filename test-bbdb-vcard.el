@@ -70,6 +70,94 @@ comparable after re-import."
                (get-buffer-create "bbdb-vcard-test-result")))
       (incf i))))
 
+;;; Try not to mess up our real BBDB:
+(when bbdb-buffer
+  (save-buffer bbdb-buffer)
+  (kill-buffer bbdb-buffer))
+(when (get-buffer "test-bbdb") (kill-buffer "test-bbdb"))
+(setq bbdb-file "/tmp/test-bbdb")
+(when (file-exists-p bbdb-file) (delete-file bbdb-file))
+(when (get-buffer "bbdb-vcard-test-result") (kill-buffer "bbdb-vcard-test-result"))
+
+
+;;;; The Import Tests
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(bbdb-vcard-import-test
+ "
+** A vcard without any type parameters.
+------------------------------------------------------------
+BEGIN:VCARD
+VERSION:3.0
+FN:First1 Last1
+N:Last1;First1
+NICKNAME:Firsty1
+PHOTO:The Alphabet:
+ abcdefghijklmnop
+ qrstuvwsyz
+BDAY:1999-12-05
+ADR:Box111;Room 111;First Street,First Corner;Cityone;First State;11111;Country
+LABEL:Label 1
+TEL:+11111111
+EMAIL:first1@provider1
+MAILER:Wanderlust1
+TZ:+01:00
+GEO:37.386013;-122.082932
+TITLE:Director\\, Research and Development
+ROLE:Programmer
+LOGO:encoded logo #1
+AGENT:CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com
+ORG:Company1;Unit1;Subunit1
+CATEGORIES:category1
+NOTE:This vcard uses every type defined in rfc2426.
+PRODID:-//ONLINE DIRECTORY//NONSGML Version 1//EN
+REV:1995-10-31T22:27:10Z
+SORT-STRING:aaa000
+SOUND:Audible1
+UID:111-111-111-111
+URL:http://first1.host1.org
+CLASS:CONFIDENTIAL
+KEY:The Key No 1
+X-foo:extended type 1
+END:VCARD
+"
+ ["First1" "Last1"
+  nil
+  ("Firsty1")
+  ("Company1
+Unit1
+Subunit1")
+  (["Office" "+11111111"])
+  (["Office"
+    ("Box111" "Room 111" "First Street" "First Corner")
+    "Cityone"
+    "First State"
+    "11111"
+    "Country"])
+  ("first1@provider1")
+  ((x-foo . "extended type 1")
+   (key . "The Key No 1")
+   (class . "CONFIDENTIAL")
+   (uid . "111-111-111-111")
+   (sound . "Audible1")
+   (sort-string . "aaa000")
+   (prodid . "-//ONLINE DIRECTORY//NONSGML Version 1//EN")
+   (agent . "CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com")
+   (logo . "encoded logo #1")
+   (role . "Programmer")
+   (title . "Director, Research and Development")
+   (geo . "37.386013;-122.082932")
+   (tz . "+01:00")
+   (mailer . "Wanderlust1")
+   (label . "Label 1")
+   (photo . "The Alphabet:abcdefghijklmnopqrstuvwsyz")
+   (mail-alias . "category1")
+   (anniversary . "1999-12-05 birthday")
+   (notes . "This vcard uses every type defined in rfc2426.")
+   (www . "http://first1.host1.org")
+   (creation-date . "1995-10-31T22:27:10Z") (timestamp . "2010-03-04"))]
+ "First1 Last1"
+ nil nil t)
 
 
 (bbdb-vcard-import-test
