@@ -906,17 +906,17 @@ Make it unique against the list USED-UP-BASENAMES."
                      (bbdb-search ,records nil nil nil nil ,phone nil))
           records))
        (xfields-search
-        (if xfields `(when ,notes
+        (if xfields `(when ,xfields
                        (bbdb-search ,phone-search nil nil nil ,xfields nil nil))
           phone-search))
        (mail-search
-        (if mail `(when ,net
-                    (bbdb-search ,notes-search nil nil ,mail nil nil nil))
-          notes-search))
+        (if mail `(when ,mail
+                    (bbdb-search ,xfields-search nil nil ,mail nil nil nil))
+          xfields-search))
        (organization-search
         (if organization `(when ,organization
                             (bbdb-search
-                             ,mail-search nil ,organization nil nil nil nil nil))
+                             ,mail-search nil ,organization nil nil nil nil))
           mail-search))
        (name-search
         (if name `(when ,name (bbdb-search ,organization-search ,name))
