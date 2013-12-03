@@ -74,10 +74,13 @@ comparable after re-import."
 (when bbdb-buffer
   (save-buffer bbdb-buffer)
   (kill-buffer bbdb-buffer))
-(when (get-buffer "test-bbdb") (kill-buffer "test-bbdb"))
+(when (get-buffer "test-bbdb")
+  (kill-buffer "test-bbdb"))
 (setq bbdb-file "/tmp/test-bbdb")
-(when (file-exists-p bbdb-file) (delete-file bbdb-file))
-(when (get-buffer "bbdb-vcard-test-result") (kill-buffer "bbdb-vcard-test-result"))
+(when (file-exists-p bbdb-file)
+  (delete-file bbdb-file))
+(when (get-buffer "bbdb-vcard-test-result")
+  (kill-buffer "bbdb-vcard-test-result"))
 
 
 ;;;; The Import Tests

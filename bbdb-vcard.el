@@ -352,22 +352,33 @@ Extend existing BBDB records where possible."
   (with-temp-buffer
     (insert vcard)
     (let* ((raw-name (car (bbdb-vcard-values-of-type "N" "value" t t)))
-           ;; Name suitable for storing in BBDB:
-           (name (bbdb-vcard-unescape-strings
-                  (bbdb-vcard-unvcardize-name raw-name)))
+           ;; First, Last, and Affixes (still in escaped form)
+           (name-components (bbdb-vcard-unvcardize-name raw-name))
+           ;; Name suitable for storing in BBDB
+           (name (if (or (nth 0 name-components)
+                         (nth 1 name-components))
+                     (cons (bbdb-vcard-unescape-strings (nth 0 name-components))
+                           (bbdb-vcard-unescape-strings (nth 1 name-components)))
+                   nil))
+           ;; Affixes suitable for storing in BBDB
+           (affixes (bbdb-vcard-unescape-strings (nth 3 name-components)))
            ;; Name to search for in BBDB now:
            (name-to-search-for
             (when raw-name (if (stringp raw-name)
                                raw-name
-                             (concat (nth 1 raw-name) ;given name
+                             (concat (nth 1 raw-name) ; given name
                                      " .*"
                                      (nth 0 raw-name))))) ; family name
            ;; Additional names from prefixed types like A.N, B.N, etc.:
            (other-names
             (mapcar
              (lambda (n)
-               (bbdb-join (bbdb-vcard-unvcardize-name (cdr (assoc "value" n)))
-                          " "))
+               (let ((name-components (bbdb-vcard-unvcardize-name
+                                       (cdr (assoc "value" n)))))
+                 (bbdb-join (list
+                             (nth 0 name-components)
+                             (nth 1 name-components))
+                            " ")))
              (bbdb-vcard-elements-of-type "N" nil t)))
            (vcard-formatted-names (bbdb-vcard-unescape-strings
                                    (bbdb-vcard-values-of-type "FN" "value")))
@@ -424,6 +435,8 @@ Extend existing BBDB records where possible."
            (vcard-rev (bbdb-vcard-unvcardize-date-time
                        (car (bbdb-vcard-values-of-type "REV" "value"))))
            (vcard-categories (bbdb-vcard-values-of-type "CATEGORIES" "value"))
+           (vcard-xfields (list))
+           (other-vcard-type nil)
            ;; The BBDB record to change:
            (record-freshness-info "BBDB record changed:") ; default user info
            (bbdb-record
@@ -455,54 +468,50 @@ Extend existing BBDB records where possible."
                         (bbdb-records)
                         name-to-search-for nil nil nil tel-to-search-for)))
              ;; No existing record found; make a fresh one:
-             (let ((fresh-record (make-vector bbdb-record-length nil)))
-               (bbdb-record-set-cache fresh-record
-                                      (make-vector bbdb-cache-length nil))
-               (if vcard-rev            ; For fresh records,
-                   (bbdb-record-set-field ; set creation-date from vcard-rev
-                    fresh-record 'creation-date vcard-rev)
-                 (run-hook-with-args 'bbdb-create-hook fresh-record))
+             (progn
                (setq record-freshness-info "BBDB record added:") ; user info
-               fresh-record)))
-           (bbdb-akas (bbdb-record-aka bbdb-record))
-           (bbdb-addresses (bbdb-record-address bbdb-record))
-           (bbdb-phones (bbdb-record-phone bbdb-record))
-           (bbdb-nets (bbdb-record-mail bbdb-record))
-           (bbdb-raw-notes (bbdb-record-xfields bbdb-record))
-           notes
-           other-vcard-type)
+               (bbdb-create-internal
+                name nil nil nil nil nil nil
+                (and vcard-rev
+                     (list (cons 'creation-date vcard-rev))))))))
       (bbdb-vcard-elements-of-type "BEGIN")   ; get rid of delimiter
       (bbdb-vcard-elements-of-type "END")     ; get rid of delimiter
       (bbdb-vcard-elements-of-type "VERSION") ; get rid of this too
-      (when name ; which should be the case as N is mandatory in vCard
-        (bbdb-record-set-firstname bbdb-record (car name))
-        (bbdb-record-set-lastname bbdb-record (cadr name)))
-      (bbdb-record-set-aka
-       bbdb-record
-       (remove (concat (bbdb-record-firstname bbdb-record)
-                       " " (bbdb-record-lastname bbdb-record))
-               (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
-                       (list vcard-nicknames
-                             other-names
-                             vcard-formatted-names
-                             bbdb-akas))))
+      (when name
+        (bbdb-record-set-field bbdb-record 'firstname (car name))
+        (bbdb-record-set-field bbdb-record 'lastname (cdr name)))
+      (when (or vcard-nicknames vcard-formatted-names other-names)
+        (bbdb-record-set-field
+         bbdb-record
+         'aka
+         (remove (concat (bbdb-record-field bbdb-record 'first-name)
+                         " " (bbdb-record-field bbdb-record 'last-name))
+                 (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
+                            (list vcard-nicknames
+                                  other-names
+                                  vcard-formatted-names))) t))
       (when vcard-org
-        (bbdb-record-set-organization bbdb-record vcard-org))
-      (bbdb-record-set-mail
-       bbdb-record (cl-union vcard-email bbdb-nets :test 'string=))
-      (bbdb-record-set-address
-       bbdb-record (cl-union vcard-adrs bbdb-addresses :test 'equal))
-      (bbdb-record-set-phone bbdb-record
-                              (cl-union vcard-tels bbdb-phones :test 'equal))
+        (bbdb-record-set-field
+         bbdb-record 'organization vcard-org t))
+      (when vcard-email
+        (bbdb-record-set-field
+         bbdb-record 'mail vcard-email t))
+      (when vcard-adrs
+        (bbdb-record-set-field
+         bbdb-record 'address vcard-adrs t))
+      (when vcard-tels
+        (bbdb-record-set-field
+         bbdb-record 'phone vcard-tels t))
       ;; prepare bbdb's notes:
-      (when vcard-url (push (cons 'www vcard-url) bbdb-raw-notes))
+      (when vcard-url
+        (push (cons 'www vcard-url) vcard-xfields))
       (when vcard-notes
         ;; Put vCard NOTEs under key 'notes (append if necessary).
-        (unless (assq 'notes bbdb-raw-notes)
-          (push (cons 'notes "") bbdb-raw-notes))
-        (setf (cdr (assq 'notes bbdb-raw-notes))
+        (unless (assq 'notes vcard-xfields)
+          (push (cons 'notes "") vcard-xfields))
+        (setf (cdr (assq 'notes vcard-xfields))
               (bbdb-vcard-merge-strings
-               (cdr (assq 'notes bbdb-raw-notes))
+               (cdr (assq 'notes vcard-xfields))
                (bbdb-vcard-unescape-strings vcard-notes)
                ";\n")))
       (when (or vcard-bday vcard-x-bbdb-anniversaries)
@@ -511,20 +520,20 @@ Extend existing BBDB records where possible."
         ;; it.  Org-mode doesn't currently (v6.35) bother with time
         ;; and time zone, though.
         (when vcard-bday (push vcard-bday vcard-x-bbdb-anniversaries))
-        (unless (assq 'anniversary bbdb-raw-notes)
-          (push (cons 'anniversary "") bbdb-raw-notes))
-        (setf (cdr (assq 'anniversary bbdb-raw-notes))
+        (unless (assq 'anniversary vcard-xfields)
+          (push (cons 'anniversary "") vcard-xfields))
+        (setf (cdr (assq 'anniversary vcard-xfields))
               (bbdb-vcard-merge-strings
-               (cdr (assq 'anniversary bbdb-raw-notes))
+               (cdr (assq 'anniversary vcard-xfields))
                (bbdb-vcard-unescape-strings vcard-x-bbdb-anniversaries)
                "\n")))
       (when vcard-categories
         ;; Put vCard CATEGORIES under key 'mail-alias (append if necessary).
-        (unless (assq 'mail-alias bbdb-raw-notes)
-          (push (cons 'mail-alias "") bbdb-raw-notes))
-        (setf (cdr (assq 'mail-alias bbdb-raw-notes))
+        (unless (assq 'mail-alias vcard-xfields)
+          (push (cons 'mail-alias "") vcard-xfields))
+        (setf (cdr (assq 'mail-alias vcard-xfields))
               (bbdb-vcard-merge-strings
-               (cdr (assq 'mail-alias bbdb-raw-notes))
+               (cdr (assq 'mail-alias vcard-xfields))
                vcard-categories
                ",")))
       (while (setq other-vcard-type (bbdb-vcard-other-element))
@@ -539,10 +548,11 @@ Extend existing BBDB records where possible."
                                        (symbol-name (car other-vcard-type))))
                     (and bbdb-vcard-skip-valueless
                          (zerop (length (cdr other-vcard-type)))))
-          (push (bbdb-vcard-remove-x-bbdb other-vcard-type) bbdb-raw-notes)))
-      (bbdb-record-set-xfields
+          (push (bbdb-vcard-remove-x-bbdb other-vcard-type) vcard-xfields)))
+      (bbdb-record-set-field
        bbdb-record
-       (cl-remove-duplicates bbdb-raw-notes :test 'equal :from-end t))
+       'xfields
+       vcard-xfields t)
       (bbdb-change-record bbdb-record t t)
       ;; Tell the user what we've done.
       (message "%s %s %s -- %s"
@@ -816,24 +826,25 @@ STRINGS may be a string or a sequence of strings."
     bbdb-fieldname))                  ; lowercase more consistent here
 
 (defun bbdb-vcard-unvcardize-name (vcard-name)
-  "Convert VCARD-NAME (type N) into (FIRSTNAME LASTNAME)."
-  (if (stringp vcard-name)              ; unstructured N
-      (let ((vcard-name (bbdb-divide-name vcard-name)))
-        (list (car vcard-name)
-              (cdr vcard-name)))
-    (let ((vcard-name
-           (mapcar (lambda (x)
-                     (bbdb-join (bbdb-vcard-split-structured-text x "," t)
-                                " "))
-                   vcard-name))) ; flatten comma-separated substructure
-      (list (concat (nth 3 vcard-name)  ; honorific prefixes
-                    (unless (zerop (length (nth 3 vcard-name))) " ")
-                    (nth 1 vcard-name)  ; given name
-                    (unless (zerop (length (nth 2 vcard-name))) " ")
-                    (nth 2 vcard-name)) ; additional names
-            (concat (nth 0 vcard-name)  ; family name
-                    (unless (zerop (length (nth 4 vcard-name))) " ")
-                    (nth 4 vcard-name)))))) ; honorific suffixes
+  "Convert VCARD-NAME into (type N) into a list (FIRST LAST AFFIXES).
+LAST and FIRST are strings or nil, and AFFIXES is either nil
+or a list of strings."
+  (if (stringp vcard-name) ; unstructured N
+      (let ((name (bbdb-divide-name vcard-name)))
+        (list (car name) (cdr name) nil))
+    (let* ((vcard-name
+            (mapcar (lambda (x)
+                      (bbdb-join (bbdb-vcard-split-structured-text x "," t) " "))
+                    vcard-name))  ; flatten comma-separated substructure
+           (first (concat (nth 1 vcard-name)  ; given name
+                          (unless (zerop (length (nth 2 vcard-name))) " ")
+                          (nth 2 vcard-name)))
+           (last (nth 0 vcard-name))
+           (prefixes (bbdb-vcard-split-structured-text
+                      (nth 3 vcard-name) "," t))
+           (suffixes (bbdb-vcard-split-structured-text
+                      (nth 4 vcard-name) "," t)))
+      (list first last (append prefixes suffixes)))))
 
 (defun bbdb-vcard-unvcardize-org (vcard-org)
   "Convert VCARD-ORG (type ORG), which may be a list, into a string."
