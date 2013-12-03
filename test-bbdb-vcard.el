@@ -198,10 +198,11 @@ X-foo:extended type 1
 END:VCARD
 "
  ["First2" "Last2"
+  nil
   ("First2; Last2" "Firsty2" "or; something")
-  "Company1
+  ("Company1
 Unit1
-Subunit1"
+Subunit1")
   (["Office" "+11111111;+222222"])
   (["Office" ("Box111" "Room 111" "First Street" "First Corner") "Cityone" "First State" "11111" "Country"])
   ("first1@provider1")
@@ -289,10 +290,11 @@ KEY;ENCODING=b:MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQA
 END:VCARD
 "
  ["Dr. John Philip Paul" "Stevenson Jr. M.D. A.C.P."
+  nil
   ("Mr. John Q. Public, Esq." "Robbie")
-  "ABC, Inc.
+  ("ABC, Inc.
 North American Division
-Marketing"
+Marketing")
   (["Office" "+1-213-555-1234"])
   (["Home"
     ("123 Main Street")
@@ -389,10 +391,11 @@ KEY;ENCODING=b:MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQA
 END:VCARD
 "
 ["Dr. John Philip Paul" "Stevenson Jr. M.D. A.C.P."
+ nil
  ("Mr. John Q. Public, Esq." "Robbie")
- "ABC, Inc.
+ ("ABC, Inc.
 North American Division
-Marketing"
+Marketing")
  (["Office" "+1-213-555-1234"])
  (["Home"
    ("123 Main Street")
@@ -442,8 +445,9 @@ END:vcard
 "
  ["FirstA" "FamilyA"
   nil
-  "OrgA
-UnitA"
+  nil
+  ("OrgA
+UnitA")
   nil
   nil
   ("userA@hostA.example.com")
@@ -464,8 +468,9 @@ END:VCARD
 "
  ["FirstA" "FamilyA"
   nil
-  "OrgA
-UnitA"
+  nil
+  ("OrgA
+UnitA")
   nil
   nil
   ("userA@hostA.example.com")
@@ -487,8 +492,9 @@ END:VCARD
 "
  ["FirstA" "FamilyA"
   nil
-  "OrgA
-UnitA"
+  nil
+  ("OrgA
+UnitA")
   nil
   nil
   ("userA@hostA.example.com" "personA@example.com")
@@ -508,8 +514,9 @@ END:VCARD
 "
  ["FirstA" "FamilyA"
   nil
-  "OrgA
-UnitA"
+  nil
+  ("OrgA
+UnitA")
   nil
   nil
   ("userA@hostA.example.com" "personA@example.com")
@@ -529,8 +536,9 @@ END:VCARD
 "
  ["FirstA" "FamilyA"
   nil
-  "OrgA
-UnitA"
+  nil
+  ("OrgA
+UnitA")
   nil
   nil
   ("userA@hostA.example.com" "personA@example.com")
@@ -552,8 +560,9 @@ END:VCARD
 "
  ["FirstA" "FamilyA"
   nil
-  "OrgA
-UnitB"
+  nil
+  ("OrgA
+UnitB")
   nil
   nil
   ("userA@hostA.example.com" "personA@example.com")
@@ -574,8 +583,9 @@ END:VCARD
 "
  ["FirstA1" "FamilyA1"
   nil
-  "OrgA
-UnitB"
+  nil
+  ("OrgA
+UnitB")
   nil
   nil
   ("userA@hostA.example.com")
@@ -600,6 +610,7 @@ NICKNAME:Bee,Effy Bee,FirstB FamilyB
 END:VCARD
 "
  ["FirstB" "FamilyB"
+  nil
   ("FirstB2 FamilyB2"
    "FirstB1 FamilyB1"
    "The FirstB of FamilyB"
@@ -616,7 +627,7 @@ END:VCARD
 
 (bbdb-vcard-import-test
  "
-** Additional ORGs go to Notes, org.
+** Multiple Orgs
 ------------------------------------------------------------
 BEGIN:VCARD
 VERSION:3.0
@@ -627,18 +638,18 @@ END:vcard
 "
  ["FirstC" "FamilyC"
   nil
-  "OrgC1"
+  nil
+  ("OrgC1" "OrgC2")
   nil
   nil
   nil
-  ((org . "OrgC2")
-   (creation-date . "2010-03-04") (timestamp . "2010-03-04")) ]
+  ((creation-date . "2010-03-04") (timestamp . "2010-03-04")) ]
  "FirstC FamilyC")
 
 
 (bbdb-vcard-import-test
  "
-*** ... but only if they are unique
+*** ... Remove duplicate Orgs
 ------------------------------------------------------------
 BEGIN:VCARD
 VERSION:3.0
@@ -652,14 +663,12 @@ END:VCARD
 "
  ["FirstC" "FamilyC"
   nil
-  "OrgC1"
+  nil
+  ("OrgC1" "OrgC2" "OrgC3" "OrgC4")
   nil
   nil
   nil
-  ((org . "OrgC4")
-   (org . "OrgC3")
-   (org . "OrgC2")
-   (creation-date . "2010-03-04") (timestamp . "2010-03-04")) ]
+  ((creation-date . "2010-03-04") (timestamp . "2010-03-04")) ]
  "FirstC FamilyC")
 
 
@@ -676,8 +685,9 @@ X.END:VCARD
 "
  ["FirstD" "FamilyD"
   nil
-  "OrgD
-UnitD"
+  nil
+  ("OrgD
+UnitD")
   nil
   nil
   ("userD@hostD.example.com")
@@ -698,8 +708,9 @@ END:VCARD
 "
  ["FirstD" "FamilyD"
   nil
-  "OrgD
-UnitD"
+  nil
+  ("OrgD
+UnitD")
   nil
   nil
   ("userD@hostD.example.com")
@@ -720,8 +731,9 @@ Y.END:VCARD
 "
  ["FirstD" "FamilyD"
   nil
-  "OrgD
-UnitD"
+  nil
+  ("OrgD
+UnitD")
   nil
   nil
   ("userD@hostD.example.com")
@@ -742,8 +754,9 @@ end:vcard
 "
  ["FirstE" "FamilyE"
   nil
-  "OrgE
-UnitE"
+  nil
+  ("OrgE
+UnitE")
   nil
   nil
   ("userE@hostE.example.com")
@@ -765,8 +778,9 @@ ORG:Rübe AG
 END:VCARD
 "
  ["Franz" "Rübezahl"
+  nil
   ("Fränzchen" "Rübe")
-  "Rübe AG"
+  ("Rübe AG")
   nil
   (["Office"
     ("Postschließfach 17" "Zimmer Zwölf" "Einbahnstraße")
@@ -795,8 +809,9 @@ END:VCARD
 "
  ["FirstF" "FamilyF"
   nil
-  "OrgF
-UnitF"
+  nil
+  ("OrgF
+UnitF")
   nil
   (["Home"
     ("Box111" "LHS" "Room 111" "or not" "First Street" "First Corner")
@@ -842,8 +857,9 @@ END:VCARD
 "
  ["FirstH" "FamilyH"
   nil
-  "OrgH
-UnitH"
+  nil
+  ("OrgH
+UnitH")
   nil
   nil
   ("userH@hostH.example.com")
@@ -867,8 +883,9 @@ END:VCARD
 "
  ["FirstG" "FamilyG"
   nil
-  "OrgG
-UnitG"
+  nil
+  ("OrgG
+UnitG")
   nil
   nil
   ("userG@hostG.example.com")
@@ -891,8 +908,9 @@ END:VCARD
 "
  ["FirstN" "FamilyN"
   nil
-  "OrgN
-UnitN"
+  nil
+  ("OrgN
+UnitN")
   nil
   nil
   ("userN@hostN.example.com")
@@ -917,7 +935,8 @@ END:VCARD
 "
  ["FirstI" "FamilyI"
   nil
-  "OrgI"
+  nil
+  ("OrgI")
   nil
   nil
   nil
@@ -939,7 +958,8 @@ END:VCARD
 "
  ["FirstI" "FamilyI"
   nil
-  "OrgI"
+  nil
+  ("OrgI")
   nil
   nil
   nil
@@ -961,7 +981,8 @@ END:VCARD
 "
  ["FirstI" "FamilyI"
   nil
-  "OrgI"
+  nil
+  ("OrgI")
   nil
   nil
   nil
@@ -986,7 +1007,8 @@ END:VCARD
 "
  ["FirstM" "FamilyM"
   nil
-  "OrgI"
+  nil
+  ("OrgI")
   nil
   nil
   nil
@@ -1008,7 +1030,8 @@ END:VCARD
 "
  ["FirstM" "FamilyM"
   nil
-  "OrgI"
+  nil
+  ("OrgI")
   nil
   nil
   nil
@@ -1030,7 +1053,8 @@ END:VCARD
 "
  ["FirstM" "FamilyM"
   nil
-  "OrgI"
+  nil
+  ("OrgI")
   nil
   nil
   nil
@@ -1046,7 +1070,7 @@ END:VCARD
 BEGIN:VCARD
 VERSION:3.0
 FN:OuterfirstA OuterlastA
-N:OuterlastA OuterfirstA
+N:OuterlastA;OuterfirstA
 AGENT:BEGIN:VCARD\\nVERSION:3.0\\nN:InnerlastA\\;InnerfirstA\\nFN:InnerfirstA InnerlastA\\nTEL:+1-919-555-
  1234\\nEMAIL\\;TYPE=INTERNET:InnerA@hostA.com\\nEND:VCARD\\n
 B.AGENT:BEGIN:VCARD\\nVERSION:3.0\\nN:InnerlastB\\;InnerfirstB\\nFN:InnerfirstB InnerlastB\\nTEL:+1-919-555-
@@ -1055,6 +1079,7 @@ NOTE:A note
 END:VCARD
 "
  ["OuterlastA" "OuterfirstA"
+  nil
   ("OuterfirstA OuterlastA")
   nil
   nil
@@ -1088,7 +1113,7 @@ END:VCARD
 BEGIN:VCARD
 VERSION:3.0
 FN:OuterfirstA OuterlastA
-N:OuterlastA OuterfirstA
+N:OuterlastA;OuterfirstA
 AGENT:BEGIN:VCARD\\nVERSION:3.0\\nN:InnerlastA\\;InnerfirstA\\nFN:InnerfirstA InnerlastA\\nTEL:+1-919-555-
  1234\\nEMAIL\\;TYPE=INTERNET:InnerA@hostA.com\\nEND:VCARD\\n
 B.AGENT:BEGIN:VCARD\\nVERSION:3.0\\nN:InnerlastB\\;InnerfirstB\\nFN:InnerfirstB InnerlastB\\nTEL:+1-919-555-
@@ -1097,6 +1122,7 @@ NOTE:A note
 END:VCARD
 "
  ["InnerfirstA" "InnerlastA"
+  nil
   nil
   nil
   (["Office" "+1-919-555-1234"])
@@ -1113,7 +1139,7 @@ END:VCARD
 BEGIN:VCARD
 VERSION:3.0
 FN:OuterfirstA OuterlastA
-N:OuterlastA OuterfirstA
+N:OuterlastA;OuterfirstA
 AGENT:BEGIN:VCARD\\nVERSION:3.0\\nN:InnerlastA\\;InnerfirstA\\nFN:InnerfirstA InnerlastA\\nTEL:+1-919-555-
  1234\\nEMAIL\\;TYPE=INTERNET:InnerA@hostA.com\\nEND:VCARD\\n
 B.AGENT:BEGIN:VCARD\\nVERSION:3.0\\nN:InnerlastB\\;InnerfirstB\\nFN:InnerfirstB InnerlastB\\nTEL:+1-919-555-
@@ -1122,6 +1148,7 @@ NOTE:A note
 END:VCARD
 "
  ["InnerfirstB" "InnerlastB"
+  nil
   nil
   nil
   (["Office" "+1-919-555-1234"])
@@ -1145,7 +1172,8 @@ END:VCARD
 "
  ["FirstJ" "FamilyJ"
   nil
-  "OrgJ"
+  nil
+  ("OrgJ")
   nil
   nil
   nil
@@ -1167,7 +1195,8 @@ END:VCARD
 "
  ["FirstJ" "FamilyJ"
   nil
-  "OrgJ"
+  nil
+  ("OrgJ")
   nil
   nil
   nil
@@ -1189,7 +1218,8 @@ END:VCARD
 "
  ["FirstR" "FamilyR"
   nil
-  "OrgR"
+  nil
+  ("OrgR")
   nil
   nil
   nil
@@ -1213,7 +1243,8 @@ END:VCARD
 "
  ["FirstK" "FamilyK"
   nil
-  "CompanyK"
+  nil
+  ("CompanyK")
   nil
   nil
   nil
@@ -1235,7 +1266,8 @@ END:VCARD
 "
  ["FirstK" "FamilyK"
   nil
-  "CompanyK2"
+  nil
+  ("CompanyK2")
   nil
   nil
   nil
@@ -1258,7 +1290,8 @@ END:VCARD
 "
  ["FirstK" "FamilyK"
   nil
-  "CompanyK1"
+  nil
+  ("CompanyK1")
   nil
   nil
   nil
@@ -1281,7 +1314,8 @@ END:VCARD
 "
  ["FirstK" "FamilyK"
   nil
-  "CompanyK3"
+  nil
+  ("CompanyK3")
   nil
   nil
   nil
@@ -1309,6 +1343,7 @@ END:VCARD
   nil
   nil
   nil
+  nil
   ((anniversary . "1927-03-27T23:44:54Z birthday")
    (creation-date . "2010-03-04") (timestamp . "2010-03-04"))]
  "FirstP FamilyP")
@@ -1325,6 +1360,7 @@ BDAY:19580327T234454
 END:VCARD
 "
  ["FirstQ" "FamilyQ"
+  nil
   nil
   nil
   nil
@@ -1352,6 +1388,7 @@ END:VCARD
   nil
   nil
   nil
+  nil
   ((anniversary . "1927-03-27 birthday\n1960-12-12 wedding\n1970-11-11 blah\n1998-03-12 %s created bbdb-anniv.el %d years ago")
    (creation-date . "2010-03-04") (timestamp . "2010-03-04"))]
  "FirstM FamilyM")
@@ -1368,6 +1405,7 @@ X-BBDB-ANNIVERSARY:1960-12-12 wedding\\n1970-11-11 blah
 END:VCARD
 "
  ["FirstN" "FamilyN"
+  nil
   nil
   nil
   nil
@@ -1397,6 +1435,7 @@ END:VCARD
   nil
   nil
   nil
+  nil
   ((anniversary . "1960-12-12\n1970-11-11 blah")
    (notes . "On re-import, birthday gets labelled.  Therefore, re-import test of this one should fail.")
    (creation-date . "2010-03-04") (timestamp . "2010-03-04"))]
@@ -1420,7 +1459,8 @@ END:VCARD
 "
  ["FirstL" "FamilyL"
   nil
-  "CompanyL"
+  nil
+  ("CompanyL")
   (["Office" "111100001"]
    ["Home" "111100002"]
    ["Office" "111100003"]
@@ -1446,7 +1486,8 @@ END:VCARD
 "
  ["FirstL" "FamilyL"
   nil
-  "CompanyL2"
+  nil
+  ("CompanyL2")
   (["Office" "222200001"]
    ["Home" "222200002"]
    ["Office" "222200003"])
@@ -1472,13 +1513,14 @@ END:VCARD
 "
  ["FirstL" "FamilyL"
   nil
-  "CompanyL3"
-   (["Office" "111100003"]
-    ["Home" "111100002"]
-    ["Office" "111100001"]
-    ["Office" "333300001"]
-    ["Office" "111100002"]
-    ["Office" "333300003"])
+  nil
+  ("CompanyL3")
+  (["Office" "111100003"]
+   ["Home" "111100002"]
+   ["Office" "111100001"]
+   ["Office" "333300001"]
+   ["Office" "111100002"]
+   ["Office" "333300003"])
   nil
   nil
   ((creation-date . "2010-03-04") (timestamp . "2010-03-04"))]
@@ -1506,8 +1548,9 @@ URL:http://home.earthlink.net/~fdawson
 END:vCard
 "
  ["" ""
+  nil
   ("Frank Dawson")
-  "Lotus Development Corporation"
+  ("Lotus Development Corporation")
   (["Office" "+1-919-676-9515"] ["Office" "+1-919-676-9564"])
   (["Office"
     ("6544 Battleford Drive")
@@ -1536,8 +1579,9 @@ EMAIL;TYPE=INTERNET:howes@netscape.com
 END:vCard
 "
  ["" ""
+  nil
   ("Tim Howes")
-  "Netscape Communications Corp."
+  ("Netscape Communications Corp.")
   (["Office" "+1-415-937-3419"]
    ["Office" "+1-415-528-4164"])
   (["Office"
@@ -1567,6 +1611,7 @@ END:VCARD
  ["Fred" "Friday"
   nil
   nil
+  nil
   (["Office" "+1-213-555-1234"]
    ["Office" "+1-213-555-5678"])
   nil
@@ -1588,6 +1633,7 @@ tel;WORK;FAX:+1-213-555-5678
 end:VCARD
 "
  ["Tom" "Thursday"
+  nil
   nil
   nil
   (["Office" "+1-213-555-1234"]
@@ -1612,6 +1658,7 @@ ADR;WORK;PARCEL;POSTAL;DOM:Suite 101;1 Central St.;AnyTown;NC;27654
 END:VCARD
 "
  ["Mr. John M." "Smith Esq."
+  nil
   nil
   nil
   (["Office" "+1 (919) 555-1234"]
@@ -1653,8 +1700,9 @@ END:VCARD
 "
  ["John" "Doe"
   nil
-  "Doe Company, The
-"
+  nil
+  ("Doe Company, The
+")
   (["Office" "(987) 123-4567"]
    ["Home" "(987) 765-4321"]
    ["Mobile" "(987) 135-8642"]
@@ -1688,6 +1736,7 @@ NOTE:A note
 END:VCARD
 "
  [" Outerfirst2A" "Outerlast2A"
+  nil
   ("Outerfirst2A Outerlast2A")
   nil
   nil
@@ -1721,6 +1770,7 @@ END:VCARD
  ["Innerfirst2A" "Innerlast2A"
   nil
   nil
+  nil
   (["Office" "+1-919-555-1234"])
   nil
   ("InnerA@hostA.com")
@@ -1736,9 +1786,8 @@ END:VCARD
 (with-current-buffer "*BBDB*"
   (bbdb-vcard-export "/tmp/test-bbdb-0.vcf" t nil))
 
-(let ((first-bbdb (bbdb-search (bbdb-records) ""))
-      second-bbdb)
-  (bbdb-save-db)
+(let ((first-bbdb (bbdb-search (bbdb-records) "")) second-bbdb)
+  (bbdb-save)
   (save-buffer bbdb-buffer)
   (kill-buffer bbdb-buffer)
   (kill-buffer "*BBDB*")
