@@ -564,7 +564,7 @@ Extend existing BBDB records where possible."
            (phones (bbdb-record-phone record))
            (addresses (bbdb-record-address record))
            (www (bbdb-record-field record 'www))
-           (notes
+           (xfields
             (bbdb-vcard-split-structured-text (bbdb-record-xfields record)
                                               ";\n" t))
            (raw-anniversaries (bbdb-vcard-split-structured-text
@@ -591,8 +591,9 @@ Extend existing BBDB records where possible."
        ";;;") ; Additional Names, Honorific Prefixes, Honorific Suffixes
       (bbdb-vcard-insert-vcard-element
        "NICKNAME" (bbdb-join (bbdb-vcard-escape-strings aka) ","))
-      (bbdb-vcard-insert-vcard-element
-       "ORG" (bbdb-vcard-escape-strings organization))
+      (dolist (org organization)
+        (bbdb-vcard-insert-vcard-element
+         "ORG" (bbdb-vcard-escape-strings org)))
       (dolist (mail net)
         (bbdb-vcard-insert-vcard-element
          "EMAIL;TYPE=INTERNET" (bbdb-vcard-escape-strings mail)))
@@ -621,9 +622,9 @@ Extend existing BBDB records where possible."
          ";" (bbdb-vcard-vcardize-address-element
               (bbdb-vcard-escape-strings (bbdb-address-country address)))))
       (bbdb-vcard-insert-vcard-element "URL" www)
-      (dolist (note notes)
+      (dolist (xfield xfields)
         (bbdb-vcard-insert-vcard-element
-         "NOTE" (bbdb-vcard-escape-strings note)))
+         "NOTE" (bbdb-vcard-escape-strings xfield)))
       (bbdb-vcard-insert-vcard-element "BDAY" birthday)
       (bbdb-vcard-insert-vcard-element  ; non-birthday anniversaries
        "X-BBDB-ANNIVERSARY" (bbdb-join other-anniversaries "\\n"))
@@ -817,7 +818,9 @@ STRINGS may be a string or a sequence of strings."
 (defun bbdb-vcard-unvcardize-name (vcard-name)
   "Convert VCARD-NAME (type N) into (FIRSTNAME LASTNAME)."
   (if (stringp vcard-name)              ; unstructured N
-      (bbdb-divide-name vcard-name)
+      (let ((vcard-name (bbdb-divide-name vcard-name)))
+        (list (car vcard-name)
+              (cdr vcard-name)))
     (let ((vcard-name
            (mapcar (lambda (x)
                      (bbdb-join (bbdb-vcard-split-structured-text x "," t)
