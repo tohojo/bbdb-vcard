@@ -309,11 +309,12 @@ Extend existing BBDB records where possible."
               "," t)))
            ;; Organization suitable for storing in BBDB:
            (vcard-org
-            (bbdb-vcard-unescape-strings
-             (bbdb-vcard-unvcardize-org
-              (car (bbdb-vcard-values-of-type "ORG" "value" t t)))))
+            (mapcar (lambda (org)
+                      (bbdb-vcard-unescape-strings
+                       (bbdb-vcard-unvcardize-org org)))
+                    (bbdb-vcard-values-of-type "ORG" "value" nil t)))
            ;; Organization to search for in BBDB now:
-           (org-to-search-for vcard-org) ; sorry
+           (org-to-search-for (car vcard-org))
            ;; Email suitable for storing in BBDB:
            (vcard-email (bbdb-vcard-values-of-type "EMAIL" "value"))
            ;; Email to search for in BBDB now:
@@ -359,7 +360,7 @@ Extend existing BBDB records where possible."
            (bbdb-record
             (or
              ;; Try to find an existing one ...
-             ;; (a) try organization and net and name:
+             ;; (a) try organization and mail and name:
              (car (and bbdb-vcard-try-merge
                        (bbdb-vcard-search-intersection
                         (bbdb-records)
@@ -416,7 +417,8 @@ Extend existing BBDB records where possible."
                              other-names
                              vcard-formatted-names
                              bbdb-akas))))
-;      (when vcard-org (bbdb-record-set-organization bbdb-record vcard-org))
+      (when vcard-org
+        (bbdb-record-set-organization bbdb-record vcard-org))
       (bbdb-record-set-mail
        bbdb-record (cl-union vcard-email bbdb-nets :test 'string=))
       (bbdb-record-set-address
@@ -479,7 +481,7 @@ Extend existing BBDB records where possible."
                (bbdb-record-firstname bbdb-record)
                (bbdb-record-lastname bbdb-record)
                (replace-regexp-in-string
-                "\n" "; " (or (bbdb-record-organization bbdb-record) "-"))))))
+                "\n" "; " (or (car (bbdb-record-organization bbdb-record)) "-"))))))
 
 (defun bbdb-vcard-from (record)
   "Return BBDB RECORD as a vCard."
