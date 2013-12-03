@@ -83,6 +83,9 @@ comparable after re-import."
   (kill-buffer "bbdb-vcard-test-result"))
 
 
+;;;
+(setq bbdb-allow-duplicates t)
+
 ;;;; The Import Tests
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
