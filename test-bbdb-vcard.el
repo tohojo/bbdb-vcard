@@ -12,22 +12,22 @@
 
 (defun bbdb-vcard-import-test
   (vcard bbdb-entry search-name
-         &optional search-company search-net check-creation-date-p)
+         &optional search-org search-net check-creation-date-p)
   "Import VCARD and search for it in bbdb by SEARCH-NAME,
-SEARCH-COMPANY, (perhaps later) SEARCH-NET.  If search result
+SEARCH-ORG, (perhaps later) SEARCH-NET.  If search result
 disagrees with BBDB-ENTRY, talk about it in buffer
 bbdb-vcard-test-result. timestamp and, if CHECK-CREATION-DATE-P is
 nil, creation-date are not taken into account."
   (bbdb-vcard-iterate-vcards 'bbdb-vcard-import-vcard vcard)
-  (let* ((search-company (or search-company ""))
+  (let* ((search-org (or search-org ""))
          (bbdb-search-result
           (car (bbdb-search (bbdb-search (bbdb-records) search-name)
-                            nil search-company))))
-    (setf (cdr (assoc 'timestamp (elt bbdb-search-result 7))) "2010-03-04"
-          (cdr (assoc 'timestamp (elt bbdb-entry 7))) "2010-03-04")
+                            nil search-org))))
+    (setf (cdr (assoc 'timestamp (elt bbdb-search-result 8))) "2010-03-04"
+          (cdr (assoc 'timestamp (elt bbdb-entry 8))) "2010-03-04")
     (unless check-creation-date-p
-      (setf (cdr (assoc 'creation-date (elt bbdb-search-result 7))) "2010-03-04"
-            (cdr (assoc 'creation-date (elt bbdb-entry 7))) "2010-03-04"))
+      (setf (cdr (assoc 'creation-date (elt bbdb-search-result 8))) "2010-03-04"
+            (cdr (assoc 'creation-date (elt bbdb-entry 8))) "2010-03-04"))
     (unless (equal (cl-subseq bbdb-search-result 0 8)
                    (cl-subseq bbdb-entry 0 8))
       (princ "\nTest failed:\n" (get-buffer-create "bbdb-vcard-test-result"))
@@ -38,21 +38,21 @@ nil, creation-date are not taken into account."
       (princ "\nbut was expected as\n" (get-buffer-create "bbdb-vcard-test-result"))
       (prin1 bbdb-entry (get-buffer-create "bbdb-vcard-test-result")))))
 
-(defun bbdb-vcard-normalize-notes (notes)
-  "Sort a BBDB NOTES field and delete the timestamps in order to make them
+(defun bbdb-vcard-normalize-xfields (xfields)
+  "Sort a BBDB xfields field and delete the timestamps in order to make them
 comparable after re-import."
-  (let ((notes (remove-alist 'notes 'timestamp)))
-    (setq notes (remove-alist 'notes 'creation-date))
+  (let ((xfields (remove-alist 'xfields 'timestamp)))
+    (setq xfields (remove-alist 'xfields 'creation-date))
     (sort
-     notes
+     xfields
      #'(lambda (x y) (if (string= (symbol-name (car x)) (symbol-name (car y)))
                         (string< (cdr x) (cdr y))
                       (string< (symbol-name (car x)) (symbol-name (car y))))))))
 
 (defun bbdb-vcard-normalize-record (record)
   "Make BBDB RECORD comparable by deleting certain things and sorting others."
-  (setf (elt record 6) (bbdb-vcard-normalize-notes (elt record 7)))
-  (cl-subseq record 0 7))
+  (setf (elt record 6) (bbdb-vcard-normalize-xfields (elt record 8)))
+  (cl-subseq record 0 8))
 
 (defun bbdb-vcard-compare-bbdbs (first-bbdb second-bbdb)
   "Compare two BBDB record lists. Tell about mismatches in buffer
@@ -70,95 +70,6 @@ comparable after re-import."
                (get-buffer-create "bbdb-vcard-test-result")))
       (incf i))))
 
-
-;;; Try not to mess up our real BBDB:
-(when bbdb-buffer
-  (save-buffer bbdb-buffer)
-  (kill-buffer bbdb-buffer))
-(when (get-buffer "test-bbdb") (kill-buffer "test-bbdb"))
-(setq bbdb-file "/tmp/test-bbdb")
-(when (file-exists-p bbdb-file) (delete-file bbdb-file))
-(when (get-buffer "bbdb-vcard-test-result") (kill-buffer "bbdb-vcard-test-result"))
-
-
-;;;; The Import Tests
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(bbdb-vcard-import-test
- "
-** A vcard without any type parameters.
-------------------------------------------------------------
-BEGIN:VCARD
-VERSION:3.0
-FN:First1 Last1
-N:Last1;First1
-NICKNAME:Firsty1
-PHOTO:The Alphabet:
- abcdefghijklmnop
- qrstuvwsyz
-BDAY:1999-12-05
-ADR:Box111;Room 111;First Street,First Corner;Cityone;First State;11111;Country
-LABEL:Label 1
-TEL:+11111111
-EMAIL:first1@provider1
-MAILER:Wanderlust1
-TZ:+01:00
-GEO:37.386013;-122.082932
-TITLE:Director\\, Research and Development
-ROLE:Programmer
-LOGO:encoded logo #1
-AGENT:CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com
-ORG:Company1;Unit1;Subunit1
-CATEGORIES:category1
-NOTE:This vcard uses every type defined in rfc2426.
-PRODID:-//ONLINE DIRECTORY//NONSGML Version 1//EN
-REV:1995-10-31T22:27:10Z
-SORT-STRING:aaa000
-SOUND:Audible1
-UID:111-111-111-111
-URL:http://first1.host1.org
-CLASS:CONFIDENTIAL
-KEY:The Key No 1
-X-foo:extended type 1
-END:VCARD
-"
- ["First1" "Last1"
-  nil
-  ("Firsty1")
-  ("Company1
-Unit1
-Subunit1")
-  (["Office" "+11111111"])
-  (["Office"
-    ("Box111" "Room 111" "First Street" "First Corner")
-    "Cityone"
-    "First State"
-    "11111"
-    "Country"])
-  ("first1@provider1")
-  ((x-foo . "extended type 1")
-   (key . "The Key No 1")
-   (class . "CONFIDENTIAL")
-   (uid . "111-111-111-111")
-   (sound . "Audible1")
-   (sort-string . "aaa000")
-   (prodid . "-//ONLINE DIRECTORY//NONSGML Version 1//EN")
-   (agent . "CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com")
-   (logo . "encoded logo #1")
-   (role . "Programmer")
-   (title . "Director, Research and Development")
-   (geo . "37.386013;-122.082932")
-   (tz . "+01:00")
-   (mailer . "Wanderlust1")
-   (label . "Label 1")
-   (photo . "The Alphabet:abcdefghijklmnopqrstuvwsyz")
-   (mail-alias . "category1")
-   (anniversary . "1999-12-05 birthday")
-   (notes . "This vcard uses every type defined in rfc2426.")
-   (www . "http://first1.host1.org")
-   (creation-date . "1995-10-31T22:27:10Z") (timestamp . "2010-03-04"))]
- "First1 Last1"
- nil nil t)
 
 
 (bbdb-vcard-import-test
