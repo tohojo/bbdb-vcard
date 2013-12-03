@@ -1,4 +1,4 @@
-# BBDB vCard import/export
+# BBDB vCard
 
 `bbdb-vcard.el` imports and exports vCards (version 3.0) as defined in
 RFC 2425 and RFC 2426 to/from The Insidious Big Brother Database
@@ -26,47 +26,38 @@ respectively.
 ### Dependencies
 
 If you install using `package.el`, dependencies should be taken care of
-automatically. Otherwise, *BBDB 3* and `cl-lib` are required.
-Note that this bbdb-vcard does not work with BBDB 2.x.
+automatically. Otherwise, BBDB 3 and `cl-lib` are required.
 
-### Installing with *package.el*
+### Installing with **package.el**
 
 The development version is available on [Melpa](http://melpa.milkbox.net).
-Assuming you have added the Melpa repository as a source, the following
+Assuming you have added Melpa as a package source, the following
 command will install bbdb-vcard (and its dependencies).
 
 `M-x package-install RET bbdb-vcard RET`
 
-### Installing from source
+### Installing from Source
 
-First checkout the repository:
+First, checkout the repository:
 ```sh
 git clone git://github.com/vgeddes/bbdb-vcard.git
 ```
 
-Compile and Install with the included `Makefile`. By default bbdb-vcard is
-installed in `/usr/local/share/emacs/site-lisp/bbdb-vcard`. This can be
-changed by passing the `PREFIX` parameter to `make`. The Makefile looks
-for a working Emacs binary on your `PATH`, but this can be overriden by
-passing the `EMACS` parameter to `make`.
+Use the included Makefile to compile and install the package. By default
+bbdb-vcard is installed in `/usr/local/share/emacs/site-lisp/bbdb-vcard`,
+You can alter the install location by passing the `PREFIX` parameter
+to `make`. The choice of Emacs for byte-code compilation can be overrided
+by passing the `EMACS` parameter.
 
 ```sh
 make
 make install
 ```
-Then add the following code to your init file. You may need to modify your
-`load-path` if you installed bbdb-vcard in a non-standard location.
+
+Then add the following code to your init file. if you installed
+bbdb-vcard in a non-standard location. You may need to modify your
+`load-path` accordingly. 
 
 ```lisp
 (require 'bbdb-vcard)
-```
-
-## Implementation
-
-For a full treatise on the inner workings of bbdb-vcard, read the
-included Info documentation.
-
-Below is a mapping of vCard entities to their BBDB equivalents:
-
-```
 ```
