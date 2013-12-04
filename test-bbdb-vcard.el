@@ -28,12 +28,12 @@ nil, creation-date are not taken into account."
     (unless check-creation-date-p
       (setf (cdr (assoc 'creation-date (elt bbdb-search-result 8))) "2010-03-04"
             (cdr (assoc 'creation-date (elt bbdb-entry 8))) "2010-03-04"))
-    (unless (equal (cl-subseq bbdb-search-result 0 8)
-                   (cl-subseq bbdb-entry 0 8))
+    (unless (equal (cl-subseq bbdb-search-result 0 9)
+                   (cl-subseq bbdb-entry 0 9))
       (princ "\nTest failed:\n" (get-buffer-create "bbdb-vcard-test-result"))
       (prin1 vcard (get-buffer-create "bbdb-vcard-test-result"))
       (princ "\nwas stored as\n" (get-buffer-create "bbdb-vcard-test-result"))
-      (prin1 (cl-subseq bbdb-search-result 0 8)
+      (prin1 (cl-subseq bbdb-search-result 0 9)
              (get-buffer-create "bbdb-vcard-test-result"))
       (princ "\nbut was expected as\n" (get-buffer-create "bbdb-vcard-test-result"))
       (prin1 bbdb-entry (get-buffer-create "bbdb-vcard-test-result")))))
