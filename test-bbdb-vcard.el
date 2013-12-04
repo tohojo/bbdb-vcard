@@ -1537,7 +1537,7 @@ END:VCARD
 
 (bbdb-vcard-import-test
  "
-** From RFC 2426: author's address.  Note the omission or type N
+** From RFC 2426: author's address.  Note the omission of type N
    which is declared mandatory by this very RFC.
 ------------------------------------------------------------
 BEGIN:vCard

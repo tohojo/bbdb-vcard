@@ -834,9 +834,11 @@ STRINGS may be a string or a sequence of strings."
   "Convert VCARD-NAME into (type N) into a list (FIRST LAST AFFIXES).
 LAST and FIRST are strings or nil, and AFFIXES is either nil
 or a list of strings."
-  (if (stringp vcard-name) ; unstructured N
-      (let ((name (bbdb-divide-name vcard-name)))
-        (list (car name) (cdr name) nil))
+  (cond
+   ((stringp vcard-name)
+    (let ((name (bbdb-divide-name vcard-name)))
+      (list (car name) (cdr name) nil)))
+   ((and vcard-name (listp vcard-name))
     (let* ((vcard-name
             (mapcar (lambda (x)
                       (bbdb-join (bbdb-vcard-split-structured-text x "," t) " "))
@@ -849,7 +851,7 @@ or a list of strings."
                       (nth 3 vcard-name) "," t))
            (suffixes (bbdb-vcard-split-structured-text
                       (nth 4 vcard-name) "," t)))
-      (list first last (append prefixes suffixes)))))
+      (list first last (append prefixes suffixes))))))
 
 (defun bbdb-vcard-unvcardize-org (vcard-org)
   "Convert VCARD-ORG (type ORG), which may be a list, into a string."
