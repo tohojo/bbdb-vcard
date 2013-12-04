@@ -478,20 +478,16 @@ Extend existing BBDB records where possible."
         (bbdb-record-set-field bbdb-record 'firstname (car name))
         (bbdb-record-set-field bbdb-record 'lastname (cdr name)))
       (when (or vcard-nicknames vcard-formatted-names other-names)
-        (bbdb-record-set-field
-         bbdb-record
-         'aka
-         (cl-set-difference
-          (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
-                     (list vcard-nicknames
-                           other-names
-                           vcard-formatted-names))
-          (list (concat
-                 (bbdb-record-field bbdb-record 'firstname) " "
-                 (bbdb-record-field bbdb-record 'lastname))
-                (bbdb-record-field bbdb-record 'firstname)
-                (bbdb-record-field bbdb-record 'lastname))
-          :test 'string=) t))
+        (let ((fn (bbdb-record-field bbdb-record 'firstname))
+              (ln (bbdb-record-field bbdb-record 'lastname)))
+          (bbdb-record-set-field
+           bbdb-record
+           'aka
+           (cl-set-difference
+            (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
+                       (list vcard-formatted-names vcard-nicknames other-names))
+            (list (concat fn " " ln) fn ln)
+            :test 'string=) t)))
       (when vcard-org
         (bbdb-record-set-field
          bbdb-record 'organization vcard-org t))
