@@ -45,6 +45,7 @@
 ;; |                         |                                         |
 ;; |-------------------------+-----------------------------------------|
 ;; | VERSION                 | -                                       |
+;; | REV                     | -                                       |
 ;; |-------------------------+-----------------------------------------|
 ;; | N                       | First occurrence:                       |
 ;; |                         | Firstname                               |
@@ -83,7 +84,6 @@
 ;; | X-BBDB-ANNIVERSARY      | Xfields<anniversary (append)            |
 ;; |-------------------------+-----------------------------------------|
 ;; | NOTE                    | Xfields<notes (append)                  |
-;; | REV                     | Xfields<creation-date                   |
 ;; | CATEGORIES              | Xfields<mail-alias (append)             |
 ;; | SORT-STRING             | Xfields<sort-string                     |
 ;; | KEY                     | Xfields<key                             |
@@ -470,10 +470,7 @@ Extend existing BBDB records where possible."
              ;; No existing record found; make a fresh one:
              (progn
                (setq record-freshness-info "BBDB record added:") ; user info
-               (bbdb-create-internal
-                name nil nil nil nil nil nil
-                (and vcard-rev
-                     (list (cons 'creation-date vcard-rev))))))))
+               (bbdb-create-internal name)))))
       (bbdb-vcard-elements-of-type "BEGIN")   ; get rid of delimiter
       (bbdb-vcard-elements-of-type "END")     ; get rid of delimiter
       (bbdb-vcard-elements-of-type "VERSION") ; get rid of this too
