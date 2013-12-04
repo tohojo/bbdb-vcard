@@ -435,8 +435,8 @@ Extend existing BBDB records where possible."
            (vcard-rev (bbdb-vcard-unvcardize-date-time
                        (car (bbdb-vcard-values-of-type "REV" "value"))))
            (vcard-categories (bbdb-vcard-values-of-type "CATEGORIES" "value"))
-           (vcard-xfields (list))
-           (other-vcard-type nil)
+           vcard-xfields
+           other-vcard-type
            ;; The BBDB record to change:
            (record-freshness-info "BBDB record changed:") ; default user info
            (bbdb-record
@@ -484,12 +484,17 @@ Extend existing BBDB records where possible."
         (bbdb-record-set-field
          bbdb-record
          'aka
-         (remove (concat (bbdb-record-field bbdb-record 'first-name)
-                         " " (bbdb-record-field bbdb-record 'last-name))
-                 (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
-                            (list vcard-nicknames
-                                  other-names
-                                  vcard-formatted-names))) t))
+         (cl-set-difference
+          (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
+                     (list vcard-nicknames
+                           other-names
+                           vcard-formatted-names))
+          (list (concat
+                 (bbdb-record-field bbdb-record 'firstname) " "
+                 (bbdb-record-field bbdb-record 'lastname))
+                (bbdb-record-field bbdb-record 'firstname)
+                (bbdb-record-field bbdb-record 'lastname))
+          :test 'string=) t))
       (when vcard-org
         (bbdb-record-set-field
          bbdb-record 'organization vcard-org t))
