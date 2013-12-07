@@ -78,7 +78,7 @@
 ;; | TEL                     | Phones<Office (append)                  |
 ;; |-------------------------+-----------------------------------------|
 ;; | EMAIL;TYPE=x,y,z        | Net-Addresses (append)                  |
-;; | URL                     | Xfields<www                             |
+;; | URL                     | Xfields<url                             |
 ;; |-------------------------+-----------------------------------------|
 ;; | BDAY                    | Xfields<anniversary (append as birthday)|
 ;; | X-BBDB-ANNIVERSARY      | Xfields<anniversary (append)            |
@@ -420,11 +420,9 @@ Extend existing BBDB records where possible."
             (mapcar 'bbdb-vcard-unvcardize-adr
                     (bbdb-vcard-elements-of-type "ADR" nil t)))
            (vcard-url (car (bbdb-vcard-values-of-type "URL" "value" t)))
-           (vcard-notes (bbdb-vcard-values-of-type "NOTE" "value"))
-           (raw-bday (bbdb-vcard-unvcardize-date-time
-                      (car (bbdb-vcard-values-of-type "BDAY" "value" t))))
-           ;; Birthday suitable for storing in BBDB (usable by org-mode):
-           (vcard-bday (when raw-bday (concat raw-bday " birthday")))
+           (vcard-notes (car (bbdb-vcard-values-of-type "NOTE" "value")))
+           (vcard-bday (bbdb-vcard-unvcardize-date-time
+                        (car (bbdb-vcard-values-of-type "BDAY" "value" t))))
            ;; Birthday to search for in BBDB now:
            (bday-to-search-for vcard-bday)
            ;; Non-birthday anniversaries, probably exported by ourselves:
@@ -434,7 +432,11 @@ Extend existing BBDB records where possible."
              "\\\\n" t))
            (vcard-rev (bbdb-vcard-unvcardize-date-time
                        (car (bbdb-vcard-values-of-type "REV" "value"))))
-           (vcard-categories (bbdb-vcard-values-of-type "CATEGORIES" "value"))
+           (vcard-categories (bbdb-concat 'mail-alias
+                              (bbdb-vcard-unescape-strings
+                               (bbdb-vcard-split-structured-text
+                                (car (bbdb-vcard-values-of-type "CATEGORIES" "value"))
+                                ","))))
            vcard-xfields
            other-vcard-type
            ;; The BBDB record to change:
@@ -500,40 +502,28 @@ Extend existing BBDB records where possible."
       (when vcard-tels
         (bbdb-record-set-field
          bbdb-record 'phone vcard-tels t))
-      ;; prepare bbdb's notes:
       (when vcard-url
-        (push (cons 'www vcard-url) vcard-xfields))
+        (bbdb-record-set-field
+         bbdb-record 'url vcard-url t))
       (when vcard-notes
-        ;; Put vCard NOTEs under key 'notes (append if necessary).
-        (unless (assq 'notes vcard-xfields)
-          (push (cons 'notes "") vcard-xfields))
-        (setf (cdr (assq 'notes vcard-xfields))
-              (bbdb-vcard-merge-strings
-               (cdr (assq 'notes vcard-xfields))
-               (bbdb-vcard-unescape-strings vcard-notes)
-               ";\n")))
-      (when (or vcard-bday vcard-x-bbdb-anniversaries)
-        ;; Put vCard BDAY and vCard X-BBDB-ANNIVERSARY's under key
-        ;; 'anniversary (append if necessary) where org-mode can find
-        ;; it.  Org-mode doesn't currently (v6.35) bother with time
-        ;; and time zone, though.
-        (when vcard-bday (push vcard-bday vcard-x-bbdb-anniversaries))
-        (unless (assq 'anniversary vcard-xfields)
-          (push (cons 'anniversary "") vcard-xfields))
-        (setf (cdr (assq 'anniversary vcard-xfields))
-              (bbdb-vcard-merge-strings
-               (cdr (assq 'anniversary vcard-xfields))
-               (bbdb-vcard-unescape-strings vcard-x-bbdb-anniversaries)
-               "\n")))
+        (bbdb-record-set-field
+         bbdb-record 'notes vcard-notes t))
+      (when vcard-bday
+        (bbdb-record-set-field
+         bbdb-record 'birthday vcard-bday t))
+      (when vcard-bday
+        (bbdb-record-set-field
+         bbdb-record 'birthday vcard-bday t))
+      (when vcard-x-bbdb-anniversaries
+        (bbdb-record-set-field
+         bbdb-record 'anniversary vcard-x-bbdb-anniversaries t))
+      ;; (bbdb-vcard-merge-strings
+      ;; (cdr (assq 'mail-alias vcard-xfields))
+      ;; vcard-categories
+      ;; ","))
       (when vcard-categories
-        ;; Put vCard CATEGORIES under key 'mail-alias (append if necessary).
-        (unless (assq 'mail-alias vcard-xfields)
-          (push (cons 'mail-alias "") vcard-xfields))
-        (setf (cdr (assq 'mail-alias vcard-xfields))
-              (bbdb-vcard-merge-strings
-               (cdr (assq 'mail-alias vcard-xfields))
-               vcard-categories
-               ",")))
+        (bbdb-record-set-field
+         bbdb-record 'mail-alias vcard-categories t))
       (while (setq other-vcard-type (bbdb-vcard-other-element))
         (when (string-match "^\\([[:alnum:]-]*\\.\\)?AGENT"
                             (symbol-name (car other-vcard-type)))
@@ -563,18 +553,16 @@ Extend existing BBDB records where possible."
 (defun bbdb-vcard-from (record)
   "Return BBDB RECORD as a vCard."
   (with-temp-buffer
-    (let* ((name (bbdb-record-name record))
-           (first-name (bbdb-record-firstname record))
-           (last-name (bbdb-record-lastname record))
-           (aka (bbdb-record-aka record))
-           (organization (bbdb-record-organization record))
-           (net (bbdb-record-mail record))
-           (phones (bbdb-record-phone record))
-           (addresses (bbdb-record-address record))
-           (www (bbdb-record-field record 'www))
-           (xfields
-            (bbdb-vcard-split-structured-text (bbdb-record-xfields record)
-                                              ";\n" t))
+    (let* ((name (bbdb-record-field record 'name))
+           (first-name (bbdb-record-field record 'firstname))
+           (last-name (bbdb-record-field record 'lastname))
+           (aka (bbdb-record-field record 'aka))
+           (organization (bbdb-record-field record 'organization))
+           (net (bbdb-record-field record 'mail))
+           (phones (bbdb-record-field record 'phone))
+           (addresses (bbdb-record-field record 'address))
+           (url (bbdb-record-field record 'url))
+           (notes (bbdb-record-field record 'notes))
            (raw-anniversaries (bbdb-vcard-split-structured-text
                                (bbdb-record-field record 'anniversary) "\n" t))
            (birthday-regexp
@@ -587,8 +575,8 @@ Extend existing BBDB records where possible."
            (other-anniversaries
             (cl-remove-if (lambda (x) (string-match birthday-regexp x))
                        raw-anniversaries :count 1))
-           (creation-date (bbdb-record-field record 'creation-date))
-           (mail-aliases (bbdb-record-xfield record bbdb-mail-alias-field))
+           (timestamp (bbdb-record-field record 'timestamp))
+           (mail-aliases (bbdb-record-field record 'mail-alias))
            (raw-notes (copy-alist (bbdb-record-xfields record))))
       (bbdb-vcard-insert-vcard-element "BEGIN" "VCARD")
       (bbdb-vcard-insert-vcard-element "VERSION" "3.0")
@@ -629,20 +617,18 @@ Extend existing BBDB records where possible."
               (bbdb-vcard-escape-strings (bbdb-address-postcode address)))
          ";" (bbdb-vcard-vcardize-address-element
               (bbdb-vcard-escape-strings (bbdb-address-country address)))))
-      (bbdb-vcard-insert-vcard-element "URL" www)
-      (dolist (xfield xfields)
-        (bbdb-vcard-insert-vcard-element
-         "NOTE" (bbdb-vcard-escape-strings xfield)))
+      (bbdb-vcard-insert-vcard-element "URL" url)
+      (bbdb-vcard-insert-vcard-element "NOTE" (bbdb-vcard-escape-strings notes))
       (bbdb-vcard-insert-vcard-element "BDAY" birthday)
       (bbdb-vcard-insert-vcard-element  ; non-birthday anniversaries
        "X-BBDB-ANNIVERSARY" (bbdb-join other-anniversaries "\\n"))
-      (bbdb-vcard-insert-vcard-element "REV" creation-date)
+      (bbdb-vcard-insert-vcard-element "REV" timestamp)
       (bbdb-vcard-insert-vcard-element
        "CATEGORIES"
        (bbdb-join (bbdb-vcard-escape-strings
                    (bbdb-vcard-split-structured-text mail-aliases "," t)) ","))
       ;; prune raw-notes...
-      (dolist (key '(www notes anniversary mail-alias creation-date timestamp))
+      (dolist (key '(url notes anniversary mail-alias creation-date timestamp))
         (setq raw-notes (assq-delete-all key raw-notes)))
       ;; ... and output what's left
       (dolist (raw-note raw-notes)
