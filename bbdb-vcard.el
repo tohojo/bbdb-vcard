@@ -370,7 +370,7 @@ Extend existing BBDB records where possible."
                                      " .*"
                                      (nth 0 raw-name))))) ; family name
            ;; Additional names from prefixed types like A.N, B.N, etc.:
-           (other-names
+           (vcard-other-names
             (mapcar
              (lambda (n)
                (let ((name-components (bbdb-vcard-unvcardize-name
@@ -479,17 +479,18 @@ Extend existing BBDB records where possible."
       (when name
         (bbdb-record-set-field bbdb-record 'firstname (car name))
         (bbdb-record-set-field bbdb-record 'lastname (cdr name)))
-      (when (or vcard-nicknames vcard-formatted-names other-names)
+      (when (or vcard-formatted-names vcard-other-names vcard-nicknames)
         (let ((fn (bbdb-record-field bbdb-record 'firstname))
               (ln (bbdb-record-field bbdb-record 'lastname)))
           (bbdb-record-set-field
            bbdb-record
            'aka
-           (cl-set-difference
-            (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
-                       (list vcard-formatted-names vcard-nicknames other-names))
-            (list (concat fn " " ln) fn ln)
-            :test 'string=) t)))
+           (nreverse
+            (cl-set-difference
+             (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
+                        (list vcard-formatted-names vcard-nicknames vcard-other-names))
+             (list (concat fn " " ln) fn ln)
+             :test 'string=)) t)))
       (when vcard-org
         (bbdb-record-set-field
          bbdb-record 'organization vcard-org t))

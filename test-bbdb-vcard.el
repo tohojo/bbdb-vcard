@@ -127,7 +127,7 @@ comparable after re-import."
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-(ert-deftest bbdb-vcard-import-no-type-params ()
+(ert-deftest bbdb-vcard-test-no-type-params ()
   "A vcard without any type parameters."
   (bbdb-vcard-test-fixture
    (bbdb-vcard-test "
@@ -203,10 +203,10 @@ Subunit1")
  nil nil t)))
 
 
-(bbdb-vcard-import-test
- "
-** Bad vCard: semi-colons where they don't belong
-------------------------------------------------------------
+(ert-deftest bbdb-vcard-test-bad-1 ()
+  "Semi-colons where they don't belong"
+  (bbdb-vcard-test-fixture
+   (bbdb-vcard-test "
 BEGIN:VCARD
 VERSION:3.0
 FN:First2; Last2
@@ -265,12 +265,11 @@ Subunit1")
    (label . "Label 1;Label 2")
    (photo . "The Alphabet:abcdefghij;klmnopqrstuvwsyz")
    (mail-alias . "category1")
-   (anniversary . "1999-12-05 birthday")
+   (birthday . "1999-12-05")
    (notes . "This isn't a decent vCard. It shouldn't render our bbdb unusable. We don't expect it to re-import unchanged, though.")
-   (www . "http://first1.host1.org; My home")
-   (creation-date . "1995-10-31T22:27:10Z") (timestamp . "2010-03-04"))]
+   (url . "http://first1.host1.org; My home"))]
   "First2 Last2"
- nil nil t)
+ nil nil t)))
 
 
 (bbdb-vcard-import-test
