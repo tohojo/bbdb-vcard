@@ -9,34 +9,107 @@
 
 (require 'bbdb-vcard)
 (require 'cl-lib)
+(require 'ert)
 
-(defun bbdb-vcard-import-test
+
+(defvar bbdb-vcard-test-fields
+  '(firstname lastname affix aka organization phone address mail xfields)
+  "BBDB record fields to check")
+
+(defvar bbdb-vcard-xfield-ignore
+  '(creation-date timestamp)
+  "xfields to ignore")
+
+(defun bbdb-vcard-record-equal (r1 r2)
+  "Tests whether two BBDB records have equal components"
+  (let ((fields bbdb-vcard-test-fields)
+        (field-index 0))
+    (while (< field-index (length fields))
+      (let* ((field (nth field-index fields))
+             (v1 (if (equal field 'xfields)
+                     (bbdb-vcard-normalize-xfields (bbdb-record-field r1 field))
+                   (bbdb-record-field r1 field)))
+             (v2 (if (eq field 'xfields)
+                     (bbdb-vcard-normalize-xfields (bbdb-record-field r2 field))
+                   (bbdb-record-field r2 field))))
+        (should (equal v1 v2)))
+      (setf field-index (+ 1 field-index)))))
+
+(defun bbdb-vcard-test
   (vcard bbdb-entry search-name
          &optional search-org search-net check-creation-date-p)
   "Import VCARD and search for it in bbdb by SEARCH-NAME,
-SEARCH-ORG, (perhaps later) SEARCH-NET.  If search result
-disagrees with BBDB-ENTRY, talk about it in buffer
-bbdb-vcard-test-result. timestamp and, if CHECK-CREATION-DATE-P is
-nil, creation-date are not taken into account."
+SEARCH-ORG, (perhaps later) SEARCH-NET. Perform assert checks."
   (bbdb-vcard-iterate-vcards 'bbdb-vcard-import-vcard vcard)
   (let* ((search-org (or search-org ""))
          (bbdb-search-result
           (car (bbdb-search (bbdb-search (bbdb-records) search-name)
-                            nil search-org))))
-    (setf (cdr (assoc 'timestamp (elt bbdb-search-result 8))) "2010-03-04"
-          (cdr (assoc 'timestamp (elt bbdb-entry 8))) "2010-03-04")
-    (unless check-creation-date-p
-      (setf (cdr (assoc 'creation-date (elt bbdb-search-result 8))) "2010-03-04"
-            (cdr (assoc 'creation-date (elt bbdb-entry 8))) "2010-03-04"))
-    (unless (equal (cl-subseq bbdb-search-result 0 9)
-                   (cl-subseq bbdb-entry 0 9))
-      (princ "\nTest failed:\n" (get-buffer-create "bbdb-vcard-test-result"))
-      (prin1 vcard (get-buffer-create "bbdb-vcard-test-result"))
-      (princ "\nwas stored as\n" (get-buffer-create "bbdb-vcard-test-result"))
-      (prin1 (cl-subseq bbdb-search-result 0 9)
-             (get-buffer-create "bbdb-vcard-test-result"))
-      (princ "\nbut was expected as\n" (get-buffer-create "bbdb-vcard-test-result"))
-      (prin1 bbdb-entry (get-buffer-create "bbdb-vcard-test-result")))))
+                            nil search-org)))
+         (fields bbdb-vcard-test-fields)
+         (export-temp-file (expand-file-name
+                            (make-temp-name "bbdb-vcard-export-test")
+                            temporary-file-directory))
+         (field-index 0))
+    (while (< field-index (length fields))
+      (let* ((field (nth field-index fields))
+             (value (let ((value (bbdb-record-field bbdb-search-result field)))
+                      (if (equal field 'xfields)
+                          (bbdb-vcard-normalize-xfields (copy-alist value))
+                        value)))
+             (expected (let ((value (aref bbdb-entry field-index)))
+                         (if (equal field 'xfields)
+                             (bbdb-vcard-normalize-xfields (copy-alist value))
+                           value))))
+        (should (equal value expected))
+        (setf field-index (+ 1 field-index))))
+    ;; IMPORT/EXPORT test
+    ;; export record as vcard and import it again
+    ;; both records should match
+    (let* ((r1 bbdb-search-result)
+           (r2 (progn
+                 (bbdb-save)
+                 (delete-file (buffer-file-name bbdb-buffer))
+                 (kill-buffer bbdb-buffer)
+                 (with-temp-buffer
+                   (insert (bbdb-vcard-from r1))
+                   (message "VCARD\n%s" (bbdb-vcard-from r1))
+                   (bbdb-vcard-import-buffer (current-buffer))
+                   (car (bbdb-search (bbdb-records) ""))))))
+      (bbdb-vcard-record-equal r1 r2))))
+
+
+(defmacro bbdb-vcard-test-fixture (body)
+  "Creates a fixture for bbdb-vcard tests"
+  (declare (debug (form)))
+  `(let ((saved-bbdb-file bbdb-file)
+         (bbdb-buffer-live (buffer-live-p bbdb-buffer))
+         (bbdb-allow-duplicates t))
+     (unwind-protect
+         (progn
+           ;; SETUP
+           ;; setup state for tests
+           (let ((temp-file (expand-file-name
+                             (make-temp-name "bbdb-vcard-test")
+                             temporary-file-directory)))
+             (when (buffer-live-p bbdb-buffer)
+               (bbdb-save)
+               (kill-buffer bbdb-buffer))
+             (setq bbdb-file temp-file)
+             (setq bbdb-allow-duplicates t))
+           ;; BODY
+           ,body)
+       ;; TEARDOWN
+       ;; kill `bbdb-buffer' and delete `bbdb-file'
+       (when (buffer-live-p bbdb-buffer)
+         (with-current-buffer bbdb-buffer
+           (bbdb-save)
+           (kill-buffer)))
+       (when (file-exists-p bbdb-file)
+         (delete-file bbdb-file))
+       ;; If there was an existing `bbdb-buffer' before the test, reopen it
+       (setq bbdb-file saved-bbdb-file)
+       (when bbdb-buffer-live
+         (bury-buffer (bbdb-buffer))))))
 
 (defun bbdb-vcard-normalize-xfields (xfields)
   "Sort a BBDB xfields field and delete the timestamps in order to make them
@@ -49,50 +122,15 @@ comparable after re-import."
                         (string< (cdr x) (cdr y))
                       (string< (symbol-name (car x)) (symbol-name (car y))))))))
 
-(defun bbdb-vcard-normalize-record (record)
-  "Make BBDB RECORD comparable by deleting certain things and sorting others."
-  (setf (elt record 6) (bbdb-vcard-normalize-xfields (elt record 8)))
-  (cl-subseq record 0 8))
-
-(defun bbdb-vcard-compare-bbdbs (first-bbdb second-bbdb)
-  "Compare two BBDB record lists. Tell about mismatches in buffer
-`bbdb-vcard-test-result'."
-  (let ((i 0)
-        first-record second-record)
-    (while (or (nth i first-bbdb) (nth i second-bbdb))
-      (unless (equal (bbdb-vcard-normalize-record (nth i first-bbdb))
-                     (bbdb-vcard-normalize-record (nth i second-bbdb)))
-        (princ "\nRe-import: comparison of these records failed:"
-               (get-buffer-create "bbdb-vcard-test-result"))
-        (print (bbdb-vcard-normalize-record (nth i first-bbdb))
-               (get-buffer-create "bbdb-vcard-test-result"))
-        (prin1 (bbdb-vcard-normalize-record (nth i second-bbdb))
-               (get-buffer-create "bbdb-vcard-test-result")))
-      (incf i))))
-
-;;; Try not to mess up our real BBDB:
-(when bbdb-buffer
-  (save-buffer bbdb-buffer)
-  (kill-buffer bbdb-buffer))
-(when (get-buffer "test-bbdb")
-  (kill-buffer "test-bbdb"))
-(setq bbdb-file "/tmp/test-bbdb")
-(when (file-exists-p bbdb-file)
-  (delete-file bbdb-file))
-(when (get-buffer "bbdb-vcard-test-result")
-  (kill-buffer "bbdb-vcard-test-result"))
-
-
-;;;
-(setq bbdb-allow-duplicates t)
 
 ;;;; The Import Tests
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(bbdb-vcard-import-test
- "
-** A vcard without any type parameters.
-------------------------------------------------------------
+
+(ert-deftest bbdb-vcard-import-no-type-params ()
+  "A vcard without any type parameters."
+  (bbdb-vcard-test-fixture
+   (bbdb-vcard-test "
 BEGIN:VCARD
 VERSION:3.0
 FN:First1 Last1
@@ -158,12 +196,11 @@ Subunit1")
    (label . "Label 1")
    (photo . "The Alphabet:abcdefghijklmnopqrstuvwsyz")
    (mail-alias . "category1")
-   (anniversary . "1999-12-05 birthday")
+   (birthday . "1999-12-05")
    (notes . "This vcard uses every type defined in rfc2426.")
-   (www . "http://first1.host1.org")
-   (creation-date . "1995-10-31T22:27:10Z") (timestamp . "2010-03-04"))]
+   (url . "http://first1.host1.org"))]
  "First1 Last1"
- nil nil t)
+ nil nil t)))
 
 
 (bbdb-vcard-import-test
@@ -1782,23 +1819,3 @@ END:VCARD
   ("InnerA@hostA.com")
   ((creation-date . "2010-03-04") (timestamp . "2010-03-04"))]
  "Innerfirst2A Innerlast2A")
-
-
-
-;;;; The Export/Re-Import Tests
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(bbdb "" nil)
-(with-current-buffer "*BBDB*"
-  (bbdb-vcard-export "/tmp/test-bbdb-0.vcf" t nil))
-
-(let ((first-bbdb (bbdb-search (bbdb-records) "")) second-bbdb)
-  (bbdb-save)
-  (save-buffer bbdb-buffer)
-  (kill-buffer bbdb-buffer)
-  (kill-buffer "*BBDB*")
-  (delete-file "/tmp/test-bbdb")
-  (bbdb-vcard-import-file "/tmp/test-bbdb-0.vcf")
-  (setq second-bbdb (bbdb-search (bbdb-records) ""))
-  (bbdb-vcard-compare-bbdbs first-bbdb second-bbdb))
-;; FIXME: previous line messes bbdb up.
