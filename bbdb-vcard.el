@@ -83,16 +83,22 @@
 ;; | BDAY                    | Xfields<anniversary (append as birthday)|
 ;; | X-BBDB-ANNIVERSARY      | Xfields<anniversary (append)            |
 ;; |-------------------------+-----------------------------------------|
+;; | PHOTO (inline base64)   | Xfields<image-filename                  |
+;; |       (uri)             | Xfields<image-uri                       |
+;; |-------------------------+-----------------------------------------|
+;; | SOUND (inline base64)   | Xfields<sound-filename                  |
+;; |       (uri)             | Xfields<sound-uri                       |
+;; |-------------------------+-----------------------------------------|
+;; | KEY   (inline base64)   | Xfields<gpg-key-filename                |
+;; |       (uri)             | Xfields<gpg-key-uri                     |
+;; |-------------------------+-----------------------------------------|
 ;; | NOTE                    | Xfields<notes (append)                  |
 ;; | CATEGORIES              | Xfields<mail-alias (append)             |
 ;; | SORT-STRING             | Xfields<sort-string                     |
-;; | KEY                     | Xfields<key                             |
 ;; | GEO                     | Xfields<geo                             |
 ;; | TZ                      | Xfields<tz                              |
-;; | PHOTO                   | Xfields<photo                           |
 ;; | LABEL                   | Xfields<label                           |
 ;; | LOGO                    | Xfields<logo                            |
-;; | SOUND                   | Xfields<sound                           |
 ;; | TITLE                   | Xfields<title                           |
 ;; | ROLE                    | Xfields<role                            |
 ;; | AGENT                   | Xfields<agent                           |
@@ -218,13 +224,13 @@ Nil means current directory."
 media objects are stored")
 
 (defvar bbdb-vcard-media-types
-  ;; audio
-  '(("basic" ("audio" "snd" "audio/basic"))
-    ("wav" ("audio" "wav" "audio/wav"))
-    ("ogg" ("audio" "ogg" "audio/ogg"))
-    ("mp3" ("audio" "mp3" "audio/mpeg"))
-    ("m4a" ("audio" "m4a" "audio/mpeg"))
-    ("aac" ("audio" "aac" "audio/aac"))
+  ;; sounds
+  '(("basic" ("sound" "snd" "audio/basic"))
+    ("wav" ("sound" "wav" "audio/wav"))
+    ("ogg" ("sound" "ogg" "audio/ogg"))
+    ("mp3" ("sound" "mp3" "audio/mpeg"))
+    ("m4a" ("sound" "m4a" "audio/mpeg"))
+    ("aac" ("sound" "aac" "audio/aac"))
     ;; images
     ("png" ("image" "png" "image/png"))
     ("jpeg" ("image" "jpg" "image/jpeg"))
@@ -235,14 +241,11 @@ media objects are stored")
     ;; keys
     ("gpg" ("key" "gpg" "application/pgp-keys"))
     ("pgp" ("key" "pgp" "application/pgp-keys")))
-
   "A list of supported media types. Each item is a media descriptor of
-the form (TYPE (DIRECTORY PREFIX SUFFIX MIMETYPE)). TYPE corresponds
-to the value of the TYPE parameter in the vCard field. the string DIRECTORY
-is a directory under `bbdb-vcard-directory' where files of the this media
-type are stored. The string PREFIX and SUFFIX are affixed to a unique id
-for the media in order to form a unique filename. MIMETYPE is currently
-unused.")
+the form (TYPE (PREFIX SUFFIX MIMETYPE)). TYPE is equivalent to the
+corresponding 'TYPE' parameter value in a vCard field. The string PREFIX and
+SUFFIX are used to form a unique filename for the media object in order to
+form a unique filename. MIMETYPE is currently unused.")
 
 
 
