@@ -10,6 +10,8 @@ information.
 Git Master (as of 2013-12-08)
 -----------------------------
 
+Authors: Vincent Geddes
+
 * Support for BBDB 3.0
 
 * Inline base64-encoded Images, Sounds, and Cryptographic keys
