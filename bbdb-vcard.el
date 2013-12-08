@@ -138,7 +138,9 @@ The major part increases on user-visible changes.")
            "bbdb-vcard"))
   "The directory under which vCard media attachments are stored"
   :group 'bbdb-vcard
-  :type 'string)
+  :type 'directory
+  :set-after '(user-emacs-directory)
+)
 
 (defcustom bbdb-vcard-skip-on-import "X-GSM-"
   "Regexp describing vCard elements that are to be discarded during import.
@@ -223,6 +225,16 @@ Nil means current directory."
   "The relative subdirectory under `bbdb-vcard-directory' where
 media objects are stored")
 
+
+(defun bbdb-vcard-image-basename (record)
+  "Returns the image filename (sans suffix), for a record.
+This is meant to be bound to `bbdb-image', so that BBBD can lookup the
+image for the record."
+  (let ((image-filename (bbdb-record-field record 'image-filename)))
+    (if image-filename
+        (file-name-base image-filename)
+      nil)))
+
 (defvar bbdb-vcard-media-types
   ;; sounds
   '(("basic" ("sound" "snd" "audio/basic"))
@@ -249,7 +261,11 @@ form a unique filename. MIMETYPE is currently unused.")
 
 
 
-;;;; User Functions
+(defun bbdb-vcard-initialize ()
+  "Initializes bbdb-vcard, particularly adding the media directory
+to `bbdb-image-path'."
+  (add-to-list bbdb-image-path
+                (concat bbdb-vcard-directory bbdb-vcard-media-directory)))
 
 ;;;###autoload
 (defun bbdb-vcard-import-region (begin end)
@@ -1137,6 +1153,10 @@ media type, either 'sound or 'photo. `data' is the base64 encoded media content"
                   (error nil)))
             nil))
       nil)))
+
+;;;; do stuff after BBDB is loaded
+
+(eval-after-load 'bbdb '(bbdb-vcard-initialize))
 
 
 (provide 'bbdb-vcard)
