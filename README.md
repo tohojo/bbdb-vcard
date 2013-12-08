@@ -21,6 +21,21 @@ export them into one file each.
 To put one or all vCard(s) into the kill ring, press `V` or `* V`
 respectively.
 
+### vCard Media Objects
+
+The importer stores inline base64-encoded images, sounds, and
+cryptographic keys to the local disk under the `bbdb-vcard-directory`
+directory. The relative filenames for these objects are stored in
+the following BBDB xfields, respectively:
+
+* image-filename: `media/image-<sha1sum>.<suffix>`
+* sound-filename: `media/sound-<sha1sum>.<suffix>`
+* gpg-key-filename: `media/key-<sha1sum>.<suffix>`
+
+If the variable `bbdb-image` is uncustomized when bbdb-vcard is initialized,
+it will be set to `bbdb-vcard-image-basename`. This will allow to BBDB to locate
+images when displaying records.
+
 ## Installation
 
 ### Dependencies
