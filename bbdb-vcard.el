@@ -264,8 +264,15 @@ form a unique filename. MIMETYPE is currently unused.")
 (defun bbdb-vcard-initialize ()
   "Initializes bbdb-vcard, particularly adding the media directory
 to `bbdb-image-path'."
-  (add-to-list bbdb-image-path
-                (concat bbdb-vcard-directory bbdb-vcard-media-directory)))
+  ;; bbdb-image-path
+  (if (and bbdb-image-path (listp bbdb-image-path))
+     (add-to-list bbdb-image-path
+                (concat bbdb-vcard-directory bbdb-vcard-media-directory))
+     (setf bbdb-image-path
+           (list (concat bbdb-vcard-directory bbdb-vcard-media-directory))))
+  ;; bbdb-image
+  (unless bbdb-image
+    (setf bbdb-image #'bbdb-vcard-image-basename)))
 
 ;;;###autoload
 (defun bbdb-vcard-import-region (begin end)
@@ -1155,9 +1162,7 @@ media type, either 'sound or 'photo. `data' is the base64 encoded media content"
       nil)))
 
 ;;;; do stuff after BBDB is loaded
-
 (eval-after-load 'bbdb '(bbdb-vcard-initialize))
-
 
 (provide 'bbdb-vcard)
 
