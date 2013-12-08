@@ -437,6 +437,7 @@ Extend existing BBDB records where possible."
                                (bbdb-vcard-split-structured-text
                                 (car (bbdb-vcard-values-of-type "CATEGORIES" "value"))
                                 ","))))
+           (vcard-photo (car (bbdb-vcard-elements-of-type "PHOTO" t)))
            vcard-xfields
            other-vcard-type
            ;; The BBDB record to change:
@@ -695,7 +696,7 @@ other elements of the form \(parameter-name . parameter-value).  If
 SPLIT-VALUE-AT-SEMI-COLON-P is non-nil, split the value at key
 \"value\" at semi-colons into a list."
   (goto-char (point-min))
-  (let (values parameters read-enough)
+  (let (values parameters read-enough raw-params index)
     (while
         (and
          (not read-enough)
@@ -710,21 +711,25 @@ SPLIT-VALUE-AT-SEMI-COLON-P is non-nil, split the value at key
                                (match-string 4) ";")
                             (match-string 4)))
             parameters)
-      (while (re-search-forward "\\([^;:=]+\\)=\\([^;:]+\\)"
-                                (line-end-position) t)
-        (let* ((parameter-key (downcase (match-string 1)))
-               (parameter-value (downcase (match-string 2)))
-               (parameter-sibling (assoc parameter-key parameters)))
-          (if parameter-sibling         ; i.e., pair with equal key
-              ;; collect vCard parameter list `;a=x;a=y;a=z'
-              ;; into vCard value list `;a=x,y,z'; becoming ("a" . "x,y,z")
-              (setf (cdr parameter-sibling)
-                    (concat (cdr parameter-sibling) "," parameter-value))
-            ;; vCard parameter pair `;key=value;' with new key
-            (push (cons parameter-key parameter-value) parameters))))
+      (setf raw-params (match-string 3))
+      (setf index 0)
+      (when raw-params
+        (while (string-match "\\([^;:=]+\\)=\\([^;:]+\\)" raw-params index)
+          (let* ((parameter-key (downcase (match-string 1 raw-params)))
+                 (parameter-value (downcase (match-string 2 raw-params)))
+                 (parameter-sibling (assoc parameter-key parameters)))
+            (when parameter-sibling         ; i.e., pair with equal key
+                ;; collect vCard parameter list `;a=x;a=y;a=z'
+                ;; into vCard value list `;a=x,y,z'; becoming ("a" . "x,y,z")
+                (setf (cdr parameter-sibling)
+                      (concat (cdr parameter-sibling) "," parameter-value)))
+              ;; vCard parameter pair `;key=value;' with new key
+            (push (cons parameter-key parameter-value) parameters)
+            (setf index (match-end 0)))))
       (push parameters values)
       (delete-region (line-end-position 0) (line-end-position))
-      (when one-is-enough-p (setq read-enough t)))
+      (when one-is-enough-p
+        (setq read-enough t)))
     (nreverse values)))
 
 (defun bbdb-vcard-other-element ()
