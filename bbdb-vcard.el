@@ -519,6 +519,12 @@ Extend existing BBDB records where possible."
       (when vcard-x-bbdb-anniversaries
         (bbdb-record-set-field
          bbdb-record 'anniversary vcard-x-bbdb-anniversaries t))
+      (when (and vcard-photo bbdb-image)
+        (bbdb-record-set-field
+         bbdb-record 'image-path
+         (bbdb-vcard-import-inline-media bbdb-record
+                                         (cdr (assoc "type" vcard-photo))
+                                         (cdr (assoc "value" vcard-photo)))))
       ;; (bbdb-vcard-merge-strings
       ;; (cdr (assq 'mail-alias vcard-xfields))
       ;; vcard-categories
@@ -1005,6 +1011,37 @@ Make it unique against the list USED-UP-BASENAMES."
 The inverse function of `bbdb-split'."
   (when list
     (mapconcat 'identity list separator)))
+
+
+(defvar bbdb-vcard-media-types
+  '(("ogg" . "ogg")
+    ("wav" . "wav")
+    ("png" . "png")
+    ("jpeg" . "jpg")
+    ("jpg" . "jpg")
+    ("gif" . "gif"))
+  "Supported media types. A list of cells mapping a media type to a file suffix."
+
+(defun bbdb-vcard-import-inline-media (record type data)
+  "imports inline binary content and saves it to disk. `type' is valid vCard
+media type, either 'sound or 'photo. `data' is the base64 encoded media content"
+  (unless (and bbdb-image bbdb-image-path)
+    (error "should not reach here"))
+  (let* ((filename (cond ((functionp bbdb-image)
+                         (funcall bbdb-image record))
+                        ((memq bbdb-image '(name fl-name))
+                         (bbdb-record-name record))
+                        ((eq bbdb-image 'lf-name)
+                         (bbdb-record-name-lf record))
+                        (t (bbdb-record-xfield record bbdb-image))))
+        (suffix (cdr (assoc type bbdb-vcard-media-suffix)))
+        (fullpath (expand-file-name
+                   (concat filename "." suffix)
+                   bbdb-image-path)))
+    (when fullpath
+      (let ((coding-system-for-write 'no-conversion))
+        (write-region (base64-decode-string data) nil fullpath))
+      fullpath)))
 
 (provide 'bbdb-vcard)
 
