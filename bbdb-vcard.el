@@ -266,13 +266,13 @@ form a unique filename. MIMETYPE is currently unused.")
 to `bbdb-image-path'."
   ;; bbdb-image-path
   (if (and bbdb-image-path (listp bbdb-image-path))
-     (add-to-list bbdb-image-path
+     (add-to-list 'bbdb-image-path
                 (concat bbdb-vcard-directory bbdb-vcard-media-directory))
-     (setf bbdb-image-path
+     (setq bbdb-image-path
            (list (concat bbdb-vcard-directory bbdb-vcard-media-directory))))
   ;; bbdb-image
   (unless bbdb-image
-    (setf bbdb-image #'bbdb-vcard-image-basename)))
+    (setq bbdb-image #'bbdb-vcard-image-basename)))
 
 ;;;###autoload
 (defun bbdb-vcard-import-region (begin end)
@@ -539,9 +539,12 @@ Extend existing BBDB records where possible."
                         (bbdb-records)
                         name-to-search-for nil nil nil tel-to-search-for)))
              ;; No existing record found; make a fresh one:
-             (progn
+             (let ((record (make-vector bbdb-record-length nil)))
+               (bbdb-record-set-cache record (make-vector bbdb-cache-length nil))
+               (run-hook-with-args 'bbdb-create-hook record)
+               (bbdb-change-record record t t)
                (setq record-freshness-info "BBDB record added:") ; user info
-               (bbdb-create-internal name)))))
+               record))))
       (bbdb-vcard-elements-of-type "BEGIN")   ; get rid of delimiter
       (bbdb-vcard-elements-of-type "END")     ; get rid of delimiter
       (bbdb-vcard-elements-of-type "VERSION") ; get rid of this too
