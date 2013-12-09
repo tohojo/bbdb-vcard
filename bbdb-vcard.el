@@ -1163,15 +1163,17 @@ The inverse function of `bbdb-split'."
     string))
 
 (defun bbdb-vcard-sniff-mime-type (data)
-  (with-temp-buffer
-    (insert data)
-    (if (zerop (call-process-region 1
-                                    (+ 1 (buffer-size))
-                                    "file"
-                                    t t nil
-                                    "-b" "--mime-type" "-"))
-        (bbdb-vcard-string-chomp (buffer-string))
-      nil)))
+  (if (not (member system-type '("windows-nt" "ms-dos")))
+      (with-temp-buffer
+        (insert data)
+        (if (zerop (call-process-region 1
+                                        (+ 1 (buffer-size))
+                                        "file"
+                                        t t nil
+                                        "-b" "--mime-type" "-"))
+            (bbdb-vcard-string-chomp (buffer-string))
+          nil))
+    nil))
 
 (defun bbdb-vcard-import-inline-media (vcard-media)
   "imports inline binary content and saves it to disk."
