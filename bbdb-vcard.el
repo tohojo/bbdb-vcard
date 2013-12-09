@@ -440,14 +440,17 @@ Extend existing BBDB records where possible."
     (let* ((raw-name (car (bbdb-vcard-values-of-type "N" "value" t t)))
            ;; First, Last, and Affixes (still in escaped form)
            (name-components (bbdb-vcard-unvcardize-name raw-name))
+           ;; Formatted name
+           (vcard-formatted-name (car (bbdb-vcard-unescape-strings
+                                       (bbdb-vcard-values-of-type "FN" "value"))))
            ;; Name suitable for storing in BBDB
            (name (if (or (nth 0 name-components)
                          (nth 1 name-components))
                      (cons (bbdb-vcard-unescape-strings (nth 0 name-components))
                            (bbdb-vcard-unescape-strings (nth 1 name-components)))
-                   nil))
+                   vcard-formatted-name))
            ;; Affixes suitable for storing in BBDB
-           (affixes (bbdb-vcard-unescape-strings (nth 3 name-components)))
+           (vcard-affixes (bbdb-vcard-unescape-strings (nth 2 name-components)))
            ;; Name to search for in BBDB now:
            (name-to-search-for
             (when raw-name (if (stringp raw-name)
@@ -466,8 +469,6 @@ Extend existing BBDB records where possible."
                              (nth 1 name-components))
                             " ")))
              (bbdb-vcard-elements-of-type "N" nil t)))
-           (vcard-formatted-names (bbdb-vcard-unescape-strings
-                                   (bbdb-vcard-values-of-type "FN" "value")))
            (vcard-nicknames
             (bbdb-vcard-unescape-strings
              (bbdb-vcard-split-structured-text
@@ -569,9 +570,12 @@ Extend existing BBDB records where possible."
       (bbdb-vcard-elements-of-type "END")     ; get rid of delimiter
       (bbdb-vcard-elements-of-type "VERSION") ; get rid of this too
       (when name
-        (bbdb-record-set-field bbdb-record 'firstname (car name))
-        (bbdb-record-set-field bbdb-record 'lastname (cdr name)))
-      (when (or vcard-formatted-names vcard-other-names vcard-nicknames)
+        (if (stringp name)
+            (bbdb-record-set-field bbdb-record 'name name)
+          (progn
+            (bbdb-record-set-field bbdb-record 'firstname (car name))
+            (bbdb-record-set-field bbdb-record 'lastname (cdr name)))))
+      (when (or vcard-other-names vcard-nicknames)
         (let ((fn (bbdb-record-field bbdb-record 'firstname))
               (ln (bbdb-record-field bbdb-record 'lastname)))
           (bbdb-record-set-field
@@ -580,9 +584,12 @@ Extend existing BBDB records where possible."
            (nreverse
             (cl-set-difference
              (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
-                        (list vcard-formatted-names vcard-nicknames vcard-other-names))
+                        (list vcard-nicknames vcard-other-names))
              (list (concat fn " " ln) fn ln)
              :test 'string=)) t)))
+      (when vcard-affixes
+        (bbdb-record-set-field
+         bbdb-record 'affix vcard-affixes t))
       (when vcard-org
         (bbdb-record-set-field
          bbdb-record 'organization vcard-org t))
@@ -958,16 +965,17 @@ or a list of strings."
    ((and vcard-name (listp vcard-name))
     (let* ((vcard-name
             (mapcar (lambda (x)
-                      (bbdb-join (bbdb-vcard-split-structured-text x "," t) " "))
+                      (if (zerop (length x))
+                          nil
+                        (bbdb-vcard-split-structured-text x "," t)))
                     vcard-name))  ; flatten comma-separated substructure
-           (first (concat (nth 1 vcard-name)  ; given name
-                          (unless (zerop (length (nth 2 vcard-name))) " ")
-                          (nth 2 vcard-name)))
-           (last (nth 0 vcard-name))
-           (prefixes (bbdb-vcard-split-structured-text
-                      (nth 3 vcard-name) "," t))
-           (suffixes (bbdb-vcard-split-structured-text
-                      (nth 4 vcard-name) "," t)))
+           (first (bbdb-join (append
+                              (nth 1 vcard-name)
+                              (nth 2 vcard-name))
+                             " "))
+           (last (bbdb-join (nth 0 vcard-name) " "))
+           (prefixes (nth 3 vcard-name))
+           (suffixes (nth 4 vcard-name)))
       (list first last (append prefixes suffixes))))))
 
 (defun bbdb-vcard-unvcardize-org (vcard-org)
