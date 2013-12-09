@@ -12,7 +12,7 @@
 (require 'ert)
 
 
-(defvar bbdb-vcard-test-fields
+ (defvar bbdb-vcard-test-fields
   '(firstname lastname affix aka organization phone address mail xfields)
   "BBDB record fields to check")
 
@@ -37,7 +37,7 @@
 
 (defun bbdb-vcard-test
   (vcard bbdb-entry search-name
-         &optional search-org search-net check-creation-date-p)
+         &optional search-org search-net check-export)
   "Import VCARD and search for it in bbdb by SEARCH-NAME,
 SEARCH-ORG, (perhaps later) SEARCH-NET. Perform assert checks."
   (bbdb-vcard-iterate-vcards 'bbdb-vcard-import-vcard vcard)
@@ -65,17 +65,17 @@ SEARCH-ORG, (perhaps later) SEARCH-NET. Perform assert checks."
     ;; IMPORT/EXPORT test
     ;; export record as vcard and import it again
     ;; both records should match
-    (let* ((r1 bbdb-search-result)
-           (r2 (progn
-                 (bbdb-save)
-                 (delete-file (buffer-file-name bbdb-buffer))
-                 (kill-buffer bbdb-buffer)
-                 (with-temp-buffer
-                   (insert (bbdb-vcard-from r1))
-                   (message "VCARD\n%s" (bbdb-vcard-from r1))
-                   (bbdb-vcard-import-buffer (current-buffer))
-                   (car (bbdb-search (bbdb-records) ""))))))
-      (bbdb-vcard-record-equal r1 r2))))
+    (when check-export
+      (let* ((r1 bbdb-search-result)
+             (r2 (progn
+                   (bbdb-save)
+                   (delete-file (buffer-file-name bbdb-buffer))
+                   (kill-buffer bbdb-buffer)
+                   (with-temp-buffer
+                     (insert (bbdb-vcard-from r1))
+                     (bbdb-vcard-import-buffer (current-buffer))
+                     (car (bbdb-search (bbdb-records) ""))))))
+        (bbdb-vcard-record-equal r1 r2)))))
 
 
 (defmacro bbdb-vcard-test-fixture (body)
@@ -121,6 +121,46 @@ comparable after re-import."
      #'(lambda (x y) (if (string= (symbol-name (car x)) (symbol-name (car y)))
                         (string< (cdr x) (cdr y))
                       (string< (symbol-name (car x)) (symbol-name (car y))))))))
+
+
+(ert-deftest bbdb-vcard-test-sniff-mime-type ()
+  "Test MIME-type sniffing"
+  (should (equal (bbdb-vcard-sniff-mime-type "Plain Text")
+                 "text/plain"))
+  (should (equal (bbdb-vcard-sniff-mime-type "")
+                 "application/x-empty"))
+  (should (equal (bbdb-vcard-sniff-mime-type
+                  (base64-decode-string "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAKElEQVQoz2P8//8/AymAiYFEANWw19aWSA2M9HLSqAa6asBMAYMwpgFt4guDkeJQ1gAAAABJRU5ErkJggg=="))
+                 "image/png")))
+
+(ert-deftest bbdb-vcard-test-import-inline-media ()
+  "Test media import"
+  (let* ((bbdb-vcard-directory (format "/tmp/%s/" (make-temp-name "bbdb-vcard-")))
+         (bbdb-media-directory "media/")
+         (data "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAKElEQVQoz2P8//8/AymAiYFEANWw19aWSA2M9HLSqAa6asBMAYMwpgFt4guDkeJQ1gAAAABJRU5ErkJggg==")
+         (result-filename (format "media/image-%s.png"
+                                  (sha1 (base64-decode-string data))))
+         (vcard-media-with-type `(("value" . ,data) ("type" . "png") ("encoding" . "b")))
+         (vcard-media-no-type `(("value" . ,data) ("encoding" . "b"))))
+    (unwind-protect
+        (progn
+          ;; with type
+          (should (equal
+                   (bbdb-vcard-import-inline-media vcard-media-with-type)
+                   result-filename))
+          (should (file-exists-p (concat bbdb-vcard-directory result-filename)))
+          ;; delete imported file
+          (condition-case nil
+              (delete-file (concat bbdb-vcard-directory result-filename))
+            (error nil))
+          ;; no type
+          (should (equal
+                   (bbdb-vcard-import-inline-media vcard-media-no-type)
+                   result-filename))
+          (should (file-exists-p (concat bbdb-vcard-directory result-filename))))
+      (condition-case nil
+          (delete-directory bbdb-vcard-directory t)
+        (error nil)))))
 
 
 ;;;; The Import Tests
@@ -180,10 +220,10 @@ Subunit1")
     "Country"])
   ("first1@provider1")
   ((x-foo . "extended type 1")
-   (key . "The Key No 1")
+   (gpg-key-uri . "The Key No 1")
    (class . "CONFIDENTIAL")
    (uid . "111-111-111-111")
-   (sound . "Audible1")
+   (sound-uri . "Audible1")
    (sort-string . "aaa000")
    (prodid . "-//ONLINE DIRECTORY//NONSGML Version 1//EN")
    (agent . "CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com")
@@ -194,7 +234,7 @@ Subunit1")
    (tz . "+01:00")
    (mailer . "Wanderlust1")
    (label . "Label 1")
-   (photo . "The Alphabet:abcdefghijklmnopqrstuvwsyz")
+   (image-uri . "The Alphabet:abcdefghijklmnopqrstuvwsyz")
    (mail-alias . "category1")
    (birthday . "1999-12-05")
    (notes . "This vcard uses every type defined in rfc2426.")
@@ -250,10 +290,10 @@ Subunit1")
   (["Office" ("Box111" "Room 111" "First Street" "First Corner") "Cityone" "First State" "11111" "Country"])
   ("first1@provider1")
   ((x-foo . "extended type 1")
-   (key . "The Key No 1")
+   (gpg-key-uri . "The Key No 1")
    (class . "CONFIDENTIAL")
    (uid . "111-111-111-111")
-   (sound . "Audible1")
+   (sound-uri . "Audible1")
    (sort-string . "aaa000")
    (agent . "CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com")
    (logo . "encoded logo #1")
@@ -263,19 +303,18 @@ Subunit1")
    (tz . "+01:00;Here")
    (mailer . "Wanderlust1;Wanderlust2")
    (label . "Label 1;Label 2")
-   (photo . "The Alphabet:abcdefghij;klmnopqrstuvwsyz")
+   (image-uri . "The Alphabet:abcdefghij;klmnopqrstuvwsyz")
    (mail-alias . "category1")
    (birthday . "1999-12-05")
    (notes . "This isn't a decent vCard. It shouldn't render our bbdb unusable. We don't expect it to re-import unchanged, though.")
    (url . "http://first1.host1.org; My home"))]
   "First2 Last2"
- nil nil t)))
+ nil nil)))
 
-
-(bbdb-vcard-import-test
- "
-** The following is made of examples from rfc2426.
-------------------------------------------------------------
+(ert-deftest bbdb-vcard-test-rfc2426 ()
+  "The following is made of examples from rfc2426."
+  (bbdb-vcard-test-fixture
+   (bbdb-vcard-test "
 BEGIN:VCARD
 VERSION:3.0
 FN:Mr. John Q. Public\\, Esq.
@@ -331,9 +370,9 @@ KEY;ENCODING=b:MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQA
  UZHPYVUaSgVttImOHZIKi4hlPXBOhcUQ==
 END:VCARD
 "
- ["Dr. John Philip Paul" "Stevenson Jr. M.D. A.C.P."
-  nil
-  ("Mr. John Q. Public, Esq." "Robbie")
+ ["John Philip Paul" "Stevenson"
+  ("Dr." "Jr." "M.D." "A.C.P.")
+  ("Robbie")
   ("ABC, Inc.
 North American Division
 Marketing")
@@ -345,10 +384,10 @@ Marketing")
     "91921-1234"
     ""])
   ("jqpublic@xyz.dom1.com" "jdoe@isp.net")
-  ((key\;encoding=b . "MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENbW11bmljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0ZW1zMRwwGgYDVQQDExNyb290Y2EubmV0c2NhcGUuY29tMB4XDTk3MDYwNjE5NDc1OVoXDTk3MTIwMzE5NDc1OVowgYkxCzAJBgNVBAYTAlVTMSYwJAYDVQQKEx1OZXRzY2FwZSBDb21tdW5pY2F0aW9ucyBDb3JwLjEYMBYGA1UEAxMPVGltb3RoeSBBIEhvd2VzMSEwHwYJKoZIhvcNAQkBFhJob3dlc0BuZXRzY2FwZS5jb20xFTATBgoJkiaJk/IsZAEBEwVob3dlczBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQC0JZf6wkg8pLMXHHCUvMfL5H6zjSk4vTTXZpYyrdN2dXcoX49LKiOmgeJSzoiFKHtLOIboyludF90CgqcxtwKnAgMBAAGjNjA0MBEGCWCGSAGG+EIBAQQEAwIAoDAfBgNVHSMEGDAWgBT84FToB/GV3jr3mcau+hUMbsQukjANBgkqhkiG9w0BAQQFAAOBgQBexv7o7mi3PLXadkmNP9LcIPmx93HGp0Kgyx1jIVMyNgsemeAwBM+MSlhMfcpbTrONwNjZYW8vJDSoi//yrZlVt9bJbs7MNYZVsyF1unsqaln4/vy6Uawfg8VUMk1U7jt8LYpo4YULU7UZHPYVUaSgVttImOHZIKi4hlPXBOhcUQ==")
+  ((gpg-key-filename . "MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENbW11bmljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0ZW1zMRwwGgYDVQQDExNyb290Y2EubmV0c2NhcGUuY29tMB4XDTk3MDYwNjE5NDc1OVoXDTk3MTIwMzE5NDc1OVowgYkxCzAJBgNVBAYTAlVTMSYwJAYDVQQKEx1OZXRzY2FwZSBDb21tdW5pY2F0aW9ucyBDb3JwLjEYMBYGA1UEAxMPVGltb3RoeSBBIEhvd2VzMSEwHwYJKoZIhvcNAQkBFhJob3dlc0BuZXRzY2FwZS5jb20xFTATBgoJkiaJk/IsZAEBEwVob3dlczBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQC0JZf6wkg8pLMXHHCUvMfL5H6zjSk4vTTXZpYyrdN2dXcoX49LKiOmgeJSzoiFKHtLOIboyludF90CgqcxtwKnAgMBAAGjNjA0MBEGCWCGSAGG+EIBAQQEAwIAoDAfBgNVHSMEGDAWgBT84FToB/GV3jr3mcau+hUMbsQukjANBgkqhkiG9w0BAQQFAAOBgQBexv7o7mi3PLXadkmNP9LcIPmx93HGp0Kgyx1jIVMyNgsemeAwBM+MSlhMfcpbTrONwNjZYW8vJDSoi//yrZlVt9bJbs7MNYZVsyF1unsqaln4/vy6Uawfg8VUMk1U7jt8LYpo4YULU7UZHPYVUaSgVttImOHZIKi4hlPXBOhcUQ==")
    (class . "PUBLIC")
    (uid . "19950401-080045-40000F192713-0052")
-   (sound\;type=basic\;encoding=b . "MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENvbW11bmljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0")
+   (sound-filename . "MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENvbW11bmljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0")
    (prodid . "-//ONLINE DIRECTORY//NONSGML Version 1//EN")
    (agent\;value=uri . "CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com")
    (logo\;encoding=b\;type=jpeg . "MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENvbW11bmljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0")
@@ -362,14 +401,13 @@ Mail Drop: TNE QB
 123 Main Street
 Any Town, CA  91921-1234
 U.S.A.")
-   (photo\;value=uri . "http://www.abc.com/pub/photos/jqpublic.gif")
+   (image-uri . "http://www.abc.com/pub/photos/jqpublic.gif")
    (mail-alias . "TRAVEL AGENT")
    (anniversary . "1996-04-15 birthday")
    (notes . "This fax number is operational 0800 to 1715 EST, Mon-Fri.")
-   (www . "http://www.swbyps.restaurant.french/~chezchic.html")
-   (creation-date . "1995-10-31T22:27:10Z") (timestamp . "2010-03-04"))]
+   (url . "http://www.swbyps.restaurant.french/~chezchic.html"))]
  "John"
- nil nil t)
+ nil nil t)))
 
 
 (bbdb-vcard-import-test

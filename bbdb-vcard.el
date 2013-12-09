@@ -259,6 +259,26 @@ corresponding 'TYPE' parameter value in a vCard field. The string PREFIX and
 SUFFIX are used to form a unique filename for the media object in order to
 form a unique filename. MIMETYPE is currently unused.")
 
+(defvar bbdb-vcard-mime-types
+  '(("audio/basic" . "basic")
+    ("audio/wav" . "wav")
+    ("audio/ogg" . "ogg")
+    ("audio/mp3" . "mp3")
+    ("audio/mpeg" . "mp3")
+    ("audio/mp4" . "m4a")
+    ("audio/aac" . "aac")
+    ("image/png" . "png")
+    ("image/jpeg" . "jpeg")
+    ("image/gif" . "gif")
+    ("image/tiff" . "tiff")
+    ("image/xbm" . "xbm")
+    ("image/xpm" . "xpm")
+    ("application/pgp-keys" . "gpg"))
+  "Maps a mime-type to the name of a media descriptor")
+
+
+
+
 
 
 (defun bbdb-vcard-initialize ()
@@ -598,10 +618,8 @@ Extend existing BBDB records where possible."
           (bbdb-record-set-field
            bbdb-record 'image-filename
            (bbdb-vcard-import-inline-media vcard-photo)))
-         ;; an url
-         ((and (or (equal "uri" (cdr (assoc "value-format" vcard-photo)))
-                   (assoc "type" vcard-photo))
-               (cdr (assoc "value" vcard-photo)))
+         ;; otherwise a uri
+         (t
           (bbdb-record-set-field
            bbdb-record 'image-uri
            (bbdb-vcard-unescape-strings (cdr (assoc "value" vcard-photo)))))))
@@ -613,10 +631,8 @@ Extend existing BBDB records where possible."
           (bbdb-record-set-field
            bbdb-record 'gpg-key-filename
            (bbdb-vcard-import-inline-media vcard-key)))
-         ;; an url
-         ((and (or (equal "uri" (cdr (assoc "value-format" vcard-key)))
-                   (assoc "type" vcard-key))
-               (cdr (assoc "value" vcard-key)))
+         ;; otherwise a uri
+         (t
           (bbdb-record-set-field
            bbdb-record 'gpg-key-uri
            (bbdb-vcard-unescape-strings (cdr (assoc "value" vcard-key)))))))
@@ -628,10 +644,8 @@ Extend existing BBDB records where possible."
           (bbdb-record-set-field
            bbdb-record 'sound-filename
            (bbdb-vcard-import-inline-media vcard-sound)))
-         ;; an url
-         ((and (or (equal "uri" (cdr (assoc "value-format" vcard-sound)))
-                   (assoc "type" vcard-sound))
-               (cdr (assoc "value" vcard-sound)))
+         ;; otherwise a uri
+         (t
           (bbdb-record-set-field
            bbdb-record 'sound-uri
            (bbdb-vcard-unescape-strings (cdr (assoc "value" vcard-sound)))))))
@@ -822,12 +836,12 @@ SPLIT-VALUE-AT-SEMI-COLON-P is non-nil, split the value at key
           nil t))
       (goto-char (match-end 2))
       (setq parameters nil)
+      (setf raw-params (match-string 3))
       (push (cons "value" (if split-value-at-semi-colon-p
                               (bbdb-vcard-split-structured-text
                                (match-string 4) ";")
                             (match-string 4)))
             parameters)
-      (setf raw-params (match-string 3))
       (setf index 0)
       (when raw-params
         (while (string-match "\\([^;:=]+\\)=\\([^;:]+\\)" raw-params index)
@@ -1125,9 +1139,8 @@ The inverse function of `bbdb-split'."
     (mapconcat 'identity list separator)))
 
 (defun bbdb-vcard-compute-media-id (data)
-  "Compute a representative id for a data blob. Basically a sha1sum truncated
-to 16 characters."
-  (concat (substring (sha1 data) 0 16)))
+  "Compute a representative id for a data blob. Basically a sha1sum."
+  (sha1 data))
 
 (defun bbdb-vcard-build-filename (descriptor data)
   (expand-file-name (concat (nth 0 descriptor)
@@ -1136,32 +1149,47 @@ to 16 characters."
                     (concat bbdb-vcard-directory
                             bbdb-vcard-media-directory)))
 
+(defun bbdb-vcard-string-chomp (string)
+  (if (string-match "[ \t\n]*$" string)
+    (replace-match "" nil nil string)
+    string))
+
+(defun bbdb-vcard-sniff-mime-type (data)
+  (with-temp-buffer
+    (insert data)
+    (if (zerop (call-process-region 1
+                                    (+ 1 (buffer-size))
+                                    "file"
+                                    t t nil
+                                    "-b" "--mime-type" "-"))
+        (bbdb-vcard-string-chomp (buffer-string))
+      nil)))
+
 (defun bbdb-vcard-import-inline-media (vcard-media)
-  "imports inline binary content and saves it to disk. `type' is valid vCard
-media type, either 'sound or 'photo. `data' is the base64 encoded media content"
+  "imports inline binary content and saves it to disk."
   (let* ((type (cdr (assoc "type" vcard-media)))
          (encoding (cdr (assoc "encoding" vcard-media)))
          (value (cdr (assoc "value" vcard-media)))
+         (data (condition-case nil
+                   (base64-decode-string value)
+                 (error nil)))
+         (mime-type (and data (bbdb-vcard-sniff-mime-type data)))
          (descriptor (cadr (assoc type bbdb-vcard-media-types))))
+    (when (and (not descriptor) mime-type)
+        (setq descriptor
+              (cadr (assoc (cdr (assoc mime-type bbdb-vcard-mime-types))
+                           bbdb-vcard-media-types))))
     ;; sanity checks
-    (if (and (equal encoding "b")
-             (and (stringp value)
-                  (> (length value) 0))
-             descriptor)
-        (let ((data (condition-case nil
-                        (base64-decode-string value)
-                      (error nil))))
-          (if data
-              (let ((filename (bbdb-vcard-build-filename descriptor data))
-                    (coding-system-for-write 'no-conversion))
-                (condition-case nil
-                    (progn
-                      (unless (file-exists-p (file-name-directory filename))
-                        (make-directory (file-name-directory filename) t))
-                      (write-region data nil filename)
-                      (concat bbdb-vcard-media-directory (file-name-nondirectory filename)))
-                  (error nil)))
-            nil))
+    (if (and (equal encoding "b") data descriptor)
+        (let ((filename (bbdb-vcard-build-filename descriptor data))
+              (coding-system-for-write 'no-conversion))
+          (condition-case nil
+              (progn
+                (unless (file-exists-p (file-name-directory filename))
+                  (make-directory (file-name-directory filename) t))
+                (write-region data nil filename)
+                (concat bbdb-vcard-media-directory (file-name-nondirectory filename)))
+            (error nil)))
       nil)))
 
 ;;;; do stuff after BBDB is loaded
