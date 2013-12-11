@@ -1166,8 +1166,7 @@ The inverse function of `bbdb-split'."
   (if (not (member system-type '("windows-nt" "ms-dos")))
       (with-temp-buffer
         (insert data)
-        (if (zerop (call-process-region 1
-                                        (+ 1 (buffer-size))
+        (if (zerop (call-process-region 1 (+ 1 (buffer-size))
                                         "file"
                                         t t nil
                                         "-b" "--mime-type" "-"))
