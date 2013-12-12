@@ -432,6 +432,95 @@ When VCARDS is nil, return nil.  Otherwise, return t."
     (insert vcard)
     (car (bbdb-vcard-values-of-type "version" "value"))))
 
+
+(defvar bbdb-vcard-type-spec
+  '(("FN" * nil nil t)
+    ("N" * t t t)
+    ("NICKNAME" * nil t t)
+    ("ORG" * t nil t)
+    ("EMAIL" * nil nil t)
+    ("TEL" * nil nil t)
+    ("ADDR" * t t t)
+    ("URL" * nil nil t)
+    ("NOTE" * nil nil t)
+    ("BDAY" * nil nil t)
+    ("CATEGORIES" * nil t t)
+    ("MAILER" * nil nil t)
+    ("PHOTO" * nil nil t)
+    ("SOUND" * nil nil t)
+    ("KEY" * nil nil t))
+  "A list of recognized vCard entries. Each member is of the
+form (TYPE STRUCTURED-P LIST-P UNESCAPE-P). TYPE is the name of the entry,
+STRUCTURED-P indicates that the value is structured and each component is
+separated by ';'. LIST-P indicates that the value is a list of text items,
+separated by ','. If both STRUCTURED-P and LIST-P are non-nil, then the
+value is considered a structured value where each component is a
+list of text items. if UNESCAPE-P is non-nil the value is unescaped")
+
+(defun bbdb-vcard-scardize (vcard)
+  "Converts a vCard into an Sexp-Card of the form:
+ ((TYPE (((PARAM . VALUE) ...) ...)) ...)
+
+TYPE is a symbol and a member of `bbdb-vcard-import-types'. PARAM is a
+a symbol that represents a vCard property parameter. VALUE is a string or
+nil.
+
+PARAM is not limited to, but can be equal to any of the
+following values:
+
+  `content': The actual content of the vCard field.
+  `value': The 'VALUE' property parameter
+  `type': The 'TYPE' property parameter
+
+See http://tools.ietf.org/search/rfc6350#section-5 for a full list
+of possible property parameters"
+
+  (with-temp-buffer
+    (insert vcard)
+    (let ((scard
+           (cl-remove-if
+            (lambda (element)
+              (null (cadr element)))
+            (mapcar 'bbdb-vcard-scardize bbdb-vcard-type-spec))))
+      scard)))
+
+(defun bbdb-vcard-scardize-elements-of-type (type)
+  (cl-destructuring-bind
+      (name cardinality structured-p list-p unescape-p) type
+    (list name
+          (mapcar
+           (lambda (element)
+             (mapcar
+              (lambda (param)
+                (let ((value
+                       (if list-p
+                           (bbdb-vcard-process-strings
+                            (lambda (value)
+                              (bbdb-vcard-split-structured-text
+                               value ","))
+                            (cdr param))
+                         (cdr param))))
+                  (list (car param)
+                        (if (listp value)
+                            (mapcar
+                             (lambda (value)
+                               (cond
+                                ((and unescape-p (listp value))
+                                 (mapcar
+                                  (lambda (list-of-strings)
+                                    (bbdb-vcard-unescape-strings list-of-strings))
+                                  value))
+                                ((and unescape-p (stringp value))
+                                 (bbdb-vcard-unescape-strings value))
+                                (t value)))
+                             value)
+                          (if unescape-p
+                              (bbdb-vcard-unescape-strings value)
+                            value)))))
+              element))
+           (bbdb-vcard-elements-of-type name nil structured-p)))))
+
+
 (defun bbdb-vcard-import-vcard (vcard)
   "Store VCARD (version 3.0) in BBDB.
 Extend existing BBDB records where possible."
@@ -858,12 +947,16 @@ SPLIT-VALUE-AT-SEMI-COLON-P is non-nil, split the value at key
             (when parameter-sibling         ; i.e., pair with equal key
                 ;; collect vCard parameter list `;a=x;a=y;a=z'
                 ;; into vCard value list `;a=x,y,z'; becoming ("a" . "x,y,z")
+              (when (stringp (cdr parameter-sibling))
                 (setf (cdr parameter-sibling)
-                      (concat (cdr parameter-sibling) "," parameter-value)))
+                      (list (cdr parameter-sibling))))
+              (setf (cdr parameter-sibling)
+                    (cons parameter-value (cdr parameter-sibling))))
             (when (equal parameter-key "value")
               (setf parameter-key "value-format"))
               ;; vCard parameter pair `;key=value;' with new key
-            (push (cons parameter-key parameter-value) parameters)
+            (unless parameter-sibling
+              (push (cons parameter-key parameter-value) parameters))
             (setf index (match-end 0)))))
       (push parameters values)
       (delete-region (line-end-position 0) (line-end-position))
