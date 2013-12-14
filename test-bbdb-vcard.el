@@ -162,6 +162,53 @@ comparable after re-import."
           (delete-directory bbdb-vcard-directory t)
         (error nil)))))
 
+(ert-deftest bbdb-vcard-test-unvcardize-name ()
+  (should
+   (equal (bbdb-vcard-unvcardize-name
+           '("Smitts" "Lucy" ("Kate" "Mary") "Dr." ("PhD" "Esq")))
+          '("Lucy Kate Mary" "Smitts" ("Dr." "PhD" "Esq"))))
+  (should
+   (equal (bbdb-vcard-unvcardize-name
+           '("Smitts" "Lucy" nil "Dr." nil))
+          '("Lucy" "Smitts" ("Dr."))))
+  (should
+   (equal (bbdb-vcard-unvcardize-name
+           '(nil "Lucy" nil nil nil))
+          '("Lucy" nil nil)))
+  (should
+   (equal (bbdb-vcard-unvcardize-name
+           "Lucy Smitts")
+          '("Lucy" "Smitts" nil))))
+
+(ert-deftest bbdb-vcard-test-unvcardize-org ()
+  (should
+   (equal (bbdb-vcard-unvcardize-org
+           '("Foo" "Bar" "Baz"))
+          "Foo\nBar\nBaz"))
+  (should
+   (equal (bbdb-vcard-unvcardize-org
+           "Foo Bar Baz")
+          "Foo Bar Baz")))
+
+(ert-deftest bbdb-vcard-test-unvcardize-adr ()
+  (should
+   (equal (bbdb-vcard-unvcardize-adr
+           '(("type" "home")
+             ("content"
+              (nil nil "123 Main Street" "Any Town" "CA" "91921-1234" "USA"))))
+          ["Home" "123 Main Street" "Any Town" "CA" "91921-1234" "USA"]))
+  (should
+   (equal (bbdb-vcard-unvcardize-adr
+           '(("type" "home")
+             ("content"
+              (nil nil ("Apt. 81" "8th Floor" "123 Main Street")
+               "Any Town" "CA" "91921-1234" "USA"))))
+          ["Home" "Apt. 81\n8th Floor\n123 Main Street"
+           "Any Town" "CA" "91921-1234" "USA"])))
+
+
+
+
 
 ;;;; The Import Tests
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
