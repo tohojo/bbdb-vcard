@@ -206,9 +206,97 @@ comparable after re-import."
           ["Home" "Apt. 81\n8th Floor\n123 Main Street"
            "Any Town" "CA" "91921-1234" "USA"])))
 
+(ert-deftest bbdb-vcard-test-elements-of-type ()
+  (with-temp-buffer
+    (insert "
+BEGIN:VCARD
+N:Smith;John;;;PhD
+EMAIL;type=INTERNET;type=HOME:fredo@gmail.com
+KEY;TYPE=png;ENCODING=b:MIICajCCAdOgAwBhMCVVMxLDAqBgdljYX==
+END:VCARD")
+  (should
+   (equal
+    (bbdb-vcard-elements-of-type "KEY" nil nil)
+    '((("encoding" . "b")
+      ("type" . "png")
+      ("content" . "MIICajCCAdOgAwBhMCVVMxLDAqBgdljYX==")))))
+  (should
+   (equal
+    (bbdb-vcard-elements-of-type "N" t t)
+    '((("content" . ("Smith" "John" nil nil "PhD"))))))))
 
 
-
+(ert-deftest bbdb-vcard-test-scardize ()
+  (should
+   (equal (bbdb-vcard-scardize "
+BEGIN:VCARD
+VERSION:3.0
+FN:Mr. John Q. Public\\, Esq.
+N:Stevenson;John;Philip,Paul;Dr.;Jr.,M.D.,A.C.P.
+NICKNAME:Robbie
+PHOTO;VALUE=uri:http://www.abc.com/pub/photos
+ /jqpublic.gif
+BDAY:1996-04-15
+ADR;TYPE=dom,home,postal,parcel:;;123 Main
+  Street;Any Town;CA;91921-1234
+LABEL;TYPE=dom,home,postal,parcel:Mr.John Q. Public\\, Esq.\\n
+ Mail Drop: TNE QB\\n123 Main Street\\nAny Town\\, CA  91921-1234
+ \\nU.S.A.
+TEL;TYPE=work,voice,pref,msg:+1-213-555-1234
+EMAIL;TYPE=internet:jqpublic@xyz.dom1.com
+EMAIL;TYPE=internet:jdoe@isp.net
+TITLE:Director\\, Research and Development
+ROLE:Programmer
+AGENT;VALUE=uri:
+ CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com
+ORG:ABC\\, Inc.;North American Division;Marketing
+CATEGORIES:TRAVEL AGENT
+NOTE:This fax number is operational 0800 to 1715
+  EST\\, Mon-Fri.
+PRODID:-//ONLINE DIRECTORY//NONSGML Version 1//EN
+REV:1995-10-31T22:27:10Z
+SOUND;TYPE=BASIC;ENCODING=b:MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcN
+ AQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENvbW11bm
+ ljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0
+UID:19950401-080045-40000F192713-0052
+URL:http://www.swbyps.restaurant.french/~chezchic.html
+END:VCARD")
+          '(("FN"
+            ((("value" "Mr. John Q. Public, Esq."))))
+           ("N"
+            ((("value"
+               ("Stevenson" "John"
+                ("Philip" "Paul")
+                "Dr."
+                ("Jr." "M.D." "A.C.P."))))))
+           ("NICKNAME"
+            ((("value" "Robbie"))))
+           ("ORG"
+            ((("value"
+               ("ABC, Inc." "North American Division" "Marketing")))))
+           ("EMAIL"
+            ((("type" "internet")
+              ("value" "jqpublic@xyz.dom1.com"))
+             (("type" "internet")
+              ("value" "jdoe@isp.net"))))
+           ("TEL"
+            ((("type" "work,voice,pref,msg")
+              ("value" "+1-213-555-1234"))))
+           ("URL"
+            ((("value" "http://www.swbyps.restaurant.french/~chezchic.html"))))
+           ("NOTE"
+            ((("value" "This fax number is operational 0800 to 1715"))))
+           ("BDAY"
+            ((("value" "1996-04-15"))))
+           ("CATEGORIES"
+            ((("value" "TRAVEL AGENT"))))
+           ("PHOTO"
+            ((("value"
+               ("uri" "//www.abc.com/pub/photos")))))
+           ("SOUND"
+            ((("encoding" "b")
+              ("type" "basic")
+              ("value" "MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcN"))))))))
 
 ;;;; The Import Tests
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

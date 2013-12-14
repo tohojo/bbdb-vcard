@@ -868,7 +868,7 @@ at semi-colons into a list."
 The current buffer is supposed to contain a single vCard.  If
 ONE-IS-ENOUGH-P is non-nil, read and delete only the first element of
 TYPE.  Return a list of alists, one per element.  Each alist has a
-cell with key \"value\" containing the element's value, and may have
+cell with key \"content\" containing the element's value, and may have
 other elements of the form \(parameter-name . parameter-value).  If
 SPLIT-VALUE-AT-SEMI-COLON-P is non-nil, split the value at key
 \"value\" at semi-colons into a list."
@@ -884,7 +884,7 @@ SPLIT-VALUE-AT-SEMI-COLON-P is non-nil, split the value at key
       (goto-char (match-end 2))
       (setq parameters nil)
       (setf raw-params (match-string 3))
-      (push (cons "value" (if split-value-at-semi-colon-p
+      (push (cons "content" (if split-value-at-semi-colon-p
                               (bbdb-vcard-split-structured-text
                                (match-string 4) ";")
                             (match-string 4)))
@@ -903,8 +903,6 @@ SPLIT-VALUE-AT-SEMI-COLON-P is non-nil, split the value at key
                       (list (cdr parameter-sibling))))
               (setf (cdr parameter-sibling)
                     (cons parameter-value (cdr parameter-sibling))))
-            (when (equal parameter-key "value")
-              (setf parameter-key "value-format"))
               ;; vCard parameter pair `;key=value;' with new key
             (unless parameter-sibling
               (push (cons parameter-key parameter-value) parameters))
