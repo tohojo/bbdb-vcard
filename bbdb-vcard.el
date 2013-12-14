@@ -913,16 +913,6 @@ SPLIT-VALUE-AT-SEMI-COLON-P is non-nil, split the value at key
         (setq read-enough t)))
     (nreverse values)))
 
-(defun bbdb-vcard-other-element ()
-  "From current buffer read and delete the topmost vCard element.
-Buffer is supposed to contain a single vCard.  Return (TYPE . VALUE)."
-  (goto-char (point-min))
-  (when (re-search-forward "^\\([[:graph:]]*?\\):\\(.*\\)$" nil t)
-    (let ((type (match-string 1))
-          (value (match-string 2)))
-      (delete-region (match-beginning 0) (match-end 0))
-      (cons (intern (downcase type)) (bbdb-vcard-unescape-strings value)))))
-
 (defun bbdb-vcard-insert-vcard-element (type &rest values)
   "Insert a vCard element comprising TYPE, `:', VALUES into current buffer.
 Take care of TYPE canonicalization, line folding, and closing newline.
