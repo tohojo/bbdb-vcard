@@ -514,8 +514,8 @@ of possible property parameters"
               element))
            (bbdb-vcard-elements-of-type name nil structured-p)))))
 
-(defun bbdb-vcard-search (scard type param)
-  (let ((elements (cadr (assoc name scard))))
+(defun bbdb-vcard-search (scard type &optional param)
+  (let ((elements (cadr (assoc type scard))))
     (if param
         (cl-remove-if 'null
                       (mapcar (lambda (element)
@@ -549,12 +549,12 @@ Extend existing BBDB records where possible."
          ;; Organization suitable for storing in BBDB:
          (vcard-org
           (mapcar (lambda (org)
-                    (bbdb-vcard-unvcardize-org org)
-                  (bbdb-vcard-search scard "ORG" "content"))))
+                    (bbdb-vcard-unvcardize-org org))
+                  (bbdb-vcard-search scard "ORG" "content")))
          ;; Organization to search for in BBDB now:
          (org-to-search-for (car vcard-org))
          ;; Email suitable for storing in BBDB:
-         (vcard-email (bbdb-vcard-search "EMAIL" "content"))
+         (vcard-email (bbdb-vcard-search scard "EMAIL" "content"))
          ;; Email to search for in BBDB now:
          (email-to-search-for
           (when vcard-email
@@ -565,7 +565,7 @@ Extend existing BBDB records where possible."
                     (vector (bbdb-vcard-translate
                              (or (cdr (assoc "type" tel)) ""))
                             (cdr (assoc "content" tel))))
-                  (bbdb-vcard-search "TEL")))
+                  (bbdb-vcard-search scard "TEL")))
          ;; Phone numbers to search for in BBDB now:
          (tel-to-search-for
           (when vcard-tels
@@ -580,13 +580,14 @@ Extend existing BBDB records where possible."
          ;; URLs
          (vcard-url (car (bbdb-vcard-search scard "URL" "content")))
          ;; Notes
-         (vcard-notes (car (bbdb-vcard-search scard "NOTE" "content" t)))
+         (vcard-notes (car (bbdb-vcard-search scard "NOTE" "content")))
          ;; Bdays
          (vcard-bday (bbdb-vcard-unvcardize-date-time
-                      (car (bbdb-vcard-search "BDAY" "content"))))
+                      (car (bbdb-vcard-search scard "BDAY" "content"))))
+         (bday-to-search-for vcard-bday)
          ;; Non-birthday anniversaries, probably exported by ourselves:
          (vcard-x-bbdb-anniversaries
-          (car (bbdb-vcard-search "X-BBDB-ANNIVERSARY" "content")))
+          (car (bbdb-vcard-search scard "X-BBDB-ANNIVERSARY" "content")))
          ;; Categories
          (vcard-categories
           (bbdb-concat 'mail-alias
@@ -594,6 +595,7 @@ Extend existing BBDB records where possible."
          (vcard-photo (car (bbdb-vcard-search scard "PHOTO")))
          (vcard-sound (car (bbdb-vcard-search scard "SOUND")))
          (vcard-key (car (bbdb-vcard-search scard "KEY")))
+         (vcard-xfields nil)
          (record
           (or
            ;; (a) try organization and mail and name:
@@ -626,21 +628,21 @@ Extend existing BBDB records where possible."
              (bbdb-record-set-cache record (make-vector bbdb-cache-length nil))
              (run-hook-with-args 'bbdb-create-hook record)
              (bbdb-change-record record t t)
-             record)))
+             record))))
       (when name
         (if (stringp name)
             (bbdb-record-set-field record 'name name)
           (progn
             (bbdb-record-set-field record 'firstname (car name))
             (bbdb-record-set-field record 'lastname (cdr name)))))
-      (when (or vcard-other-names vcard-nicknames)
+      (when vcard-nicknames
         (let* ((fn (bbdb-record-field record 'firstname))
                (ln (bbdb-record-field record 'lastname))
                (aka
                 (nreverse
                  (cl-set-difference
                   (cl-reduce (lambda (x y) (cl-union x y :test 'string=))
-                             (list vcard-nicknames vcard-other-names))
+                             (list vcard-nicknames))
                   (list (concat fn " " ln) fn ln)
                   :test 'string=))))
           (bbdb-record-set-field record 'aka aka t)))
@@ -716,7 +718,7 @@ Extend existing BBDB records where possible."
       (when vcard-categories
         (bbdb-record-set-field
          record 'mail-alias vcard-categories t))
-      (while (setq other-vcard-type (bbdb-vcard-other-element))
+      (while nil
         (when (string-match "^\\([[:alnum:]-]*\\.\\)?AGENT"
                             (symbol-name (car other-vcard-type)))
           ;; Notice other vCards inside the current one.
@@ -731,7 +733,7 @@ Extend existing BBDB records where possible."
           (push (bbdb-vcard-remove-x-bbdb other-vcard-type) vcard-xfields)))
       (bbdb-record-set-field
        record 'xfields vcard-xfields t)
-      (bbdb-change-record record t t))))
+      (bbdb-change-record record t t)))
 
 (defun bbdb-vcard-from (record)
   "Return BBDB RECORD as a vCard."
