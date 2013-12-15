@@ -28,7 +28,7 @@ all: $(ELCS) bbdb-vcard.info
 bbdb-vcard.info: bbdb-vcard.texi
 	$(MAKEINFO) $< -o $@
 
-install: install-lisp install-docs
+install: all install-lisp install-docs
 
 install-lisp: $(ELCS)
 	$(MKDIR) $(DESTDIR)$(lispdir)
@@ -40,6 +40,9 @@ install-docs: bbdb-vcard.info
 	$(INSTALL_INFO) --info-dir=$(DESTDIR)$(infodir) $(DESTDIR)$(infodir)/$<
 	$(MKDIR) $(DESTDIR)$(docdir)
 	$(CP) COPYING README.md $(DESTDIR)$(docdir)
+
+test: $(ELCS) test-bbdb-vcard.el
+	$(BATCH) -l bbdb-vcard -l test-bbdb-vcard.el --execute '(ert-run-tests-batch-and-exit t)'
 
 clean:
 	rm -f *.elc bbdb-vcard.info

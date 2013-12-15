@@ -228,7 +228,9 @@ END:VCARD")
 
 (ert-deftest bbdb-vcard-test-scardize ()
   (should
-   (equal (bbdb-vcard-scardize "
+   (equal (bbdb-vcard-scardize
+           (bbdb-vcard-unfold-lines
+"
 BEGIN:VCARD
 VERSION:3.0
 FN:Mr. John Q. Public\\, Esq.
@@ -257,10 +259,10 @@ PRODID:-//ONLINE DIRECTORY//NONSGML Version 1//EN
 REV:1995-10-31T22:27:10Z
 SOUND;TYPE=BASIC;ENCODING=b:MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcN
  AQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENvbW11bm
- ljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0
+ ljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeX==
 UID:19950401-080045-40000F192713-0052
 URL:http://www.swbyps.restaurant.french/~chezchic.html
-END:VCARD")
+END:VCARD"))
           '(("FN"
             ((("value" "Mr. John Q. Public, Esq."))))
            ("N"

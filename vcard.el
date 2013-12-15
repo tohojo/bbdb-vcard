@@ -201,8 +201,7 @@ would be returned."
   (let ((vcard nil)
         (buf (generate-new-buffer " *vcard parser work*")))
     (unwind-protect
-        (save-excursion
-          (set-buffer buf)
+        (with-current-buffer buf
           ;; Make sure last line is newline-terminated.
           ;; An extra trailing newline is harmless.
           (insert raw "\n")
