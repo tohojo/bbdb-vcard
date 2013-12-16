@@ -114,8 +114,10 @@ SEARCH-ORG, (perhaps later) SEARCH-NET. Perform assert checks."
 (defun bbdb-vcard-normalize-xfields (xfields)
   "Sort a BBDB xfields field and delete the timestamps in order to make them
 comparable after re-import."
-  (let ((xfields (remove-alist 'xfields 'timestamp)))
-    (setq xfields (remove-alist 'xfields 'creation-date))
+  (let ((xfields
+         (cl-remove-if (lambda (xfield)
+                         (memq (car xfield) '(timestamp creation-date)))
+                       xfields)))
     (sort
      xfields
      #'(lambda (x y) (if (string= (symbol-name (car x)) (symbol-name (car y)))
@@ -140,8 +142,8 @@ comparable after re-import."
          (data "iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAIAAACQkWg2AAAAKElEQVQoz2P8//8/AymAiYFEANWw19aWSA2M9HLSqAa6asBMAYMwpgFt4guDkeJQ1gAAAABJRU5ErkJggg==")
          (result-filename (format "media/image-%s.png"
                                   (sha1 (base64-decode-string data))))
-         (vcard-media-with-type `(("value" . ,data) ("type" . "png") ("encoding" . "b")))
-         (vcard-media-no-type `(("value" . ,data) ("encoding" . "b"))))
+         (vcard-media-with-type `(("content" ,data) ("type" "png") ("encoding" "b")))
+         (vcard-media-no-type `(("content" ,data) ("encoding" "b"))))
     (unwind-protect
         (progn
           ;; with type
@@ -196,14 +198,14 @@ comparable after re-import."
            '(("type" "home")
              ("content"
               (nil nil "123 Main Street" "Any Town" "CA" "91921-1234" "USA"))))
-          ["Home" "123 Main Street" "Any Town" "CA" "91921-1234" "USA"]))
+          ["home" ("123 Main Street") "Any Town" "CA" "91921-1234" "USA"]))
   (should
    (equal (bbdb-vcard-unvcardize-adr
            '(("type" "home")
              ("content"
-              (nil nil ("Apt. 81" "8th Floor" "123 Main Street")
+              (nil ("Apt. 81" "8th Floor") ("123 Main Street")
                "Any Town" "CA" "91921-1234" "USA"))))
-          ["Home" "Apt. 81\n8th Floor\n123 Main Street"
+          ["home" ("Apt. 81" "8th Floor" "123 Main Street")
            "Any Town" "CA" "91921-1234" "USA"])))
 
 (ert-deftest bbdb-vcard-test-elements-of-type ()
@@ -303,7 +305,8 @@ END:VCARD"))
    (("type" "internet")
     ("content" "jdoe@isp.net"))))
  ("TEL"
-  ((("type" "work,voice,pref,msg")
+  ((("type"
+     ("work" "voice" "pref" "msg"))
     ("content" "+1-213-555-1234"))))
  ("ADR"
   ((("type"
@@ -320,19 +323,20 @@ END:VCARD"))
   ((("content" "TRAVEL AGENT"))))
  ("PHOTO"
   ((("value" "uri")
-    ("content" "//www.abc.com/pub/photos/jqpublic.gif"))))
+    ("content" "http://www.abc.com/pub/photos/jqpublic.gif"))))
  ("SOUND"
   ((("encoding" "b")
     ("type" "basic")
-    ("content" "MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENvbW11bmljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeX=="))))))))
+    ("content" "MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENvbW11bmljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeX=="))))
+ ("UID"
+  ((("content" "19950401-080045-40000F192713-0052"))))))))
 
 ;;;; The Import Tests
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(ert-deftest bbdb-vcard-test-rfc2426 ()
-  "The following is made of examples from rfc2426."
-  (bbdb-vcard-test-fixture
-   (bbdb-vcard-test "
+
+(defvar bbdb-vcard-fixture-rfc2426
+"
 BEGIN:VCARD
 VERSION:3.0
 FN:Mr. John Q. Public\\, Esq.
@@ -357,8 +361,7 @@ ROLE:Programmer
 LOGO;ENCODING=b;TYPE=JPEG:MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcN
  AQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENvbW11bm
  ljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0
-AGENT;VALUE=uri:
- CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com
+AGENT;VALUE=uri:CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com
 ORG:ABC\\, Inc.;North American Division;Marketing
 CATEGORIES:TRAVEL AGENT
 NOTE:This fax number is operational 0800 to 1715
@@ -371,49 +374,99 @@ SOUND;TYPE=BASIC;ENCODING=b:MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcN
 UID:19950401-080045-40000F192713-0052
 URL:http://www.swbyps.restaurant.french/~chezchic.html
 CLASS:PUBLIC
-KEY;ENCODING=b:MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQA
- wdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENbW11bmljYX
- Rpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0
- ZW1zMRwwGgYDVQQDExNyb290Y2EubmV0c2NhcGUuY29tMB4XDTk3MDYwNj
- E5NDc1OVoXDTk3MTIwMzE5NDc1OVowgYkxCzAJBgNVBAYTAlVTMSYwJAYD
- VQQKEx1OZXRzY2FwZSBDb21tdW5pY2F0aW9ucyBDb3JwLjEYMBYGA1UEAx
- MPVGltb3RoeSBBIEhvd2VzMSEwHwYJKoZIhvcNAQkBFhJob3dlc0BuZXRz
- Y2FwZS5jb20xFTATBgoJkiaJk/IsZAEBEwVob3dlczBcMA0GCSqGSIb3DQ
- EBAQUAA0sAMEgCQQC0JZf6wkg8pLMXHHCUvMfL5H6zjSk4vTTXZpYyrdN2
- dXcoX49LKiOmgeJSzoiFKHtLOIboyludF90CgqcxtwKnAgMBAAGjNjA0MB
- EGCWCGSAGG+EIBAQQEAwIAoDAfBgNVHSMEGDAWgBT84FToB/GV3jr3mcau
- +hUMbsQukjANBgkqhkiG9w0BAQQFAAOBgQBexv7o7mi3PLXadkmNP9LcIP
- mx93HGp0Kgyx1jIVMyNgsemeAwBM+MSlhMfcpbTrONwNjZYW8vJDSoi//y
- rZlVt9bJbs7MNYZVsyF1unsqaln4/vy6Uawfg8VUMk1U7jt8LYpo4YULU7
- UZHPYVUaSgVttImOHZIKi4hlPXBOhcUQ==
+KEY;ENCODING=b:LS0tLS1CRUdJTiBQR1AgUFVCTElDIEtFWSBCTE9DSy0tLS0tClZlcnN
+ pb246IEdudVBHIHYxLjQuMTQgKERhcndpbikKCm1JMEVVcTlXNlFFRU
+ FNT0dzNzZ1TGxMNWZVVG1GSGxNU09OZE1KRm1YdHBTZmdrVHNpMHZ5a
+ EM5VUVQWHVsRFoKNHBjOWdQT0tHMkxwVnhYQnVvelZKOXZqL25Jc21o
+ T1RRWnZSdjlhdnhlTTlPOW5jOVhqWUZWSGxlMVlNYVQ5NgpMdW83Sll
+ 0Wm9tT09RbTZGWlJvVkdYY201czZSRm1SUGdlM2NFNmErS0s4akhGM3
+ RLc1k5bVBoREFCRUJBQUcwCkJVSkNSRUl6aUxnRUV3RUNBQ0lGQWxLd
+ lZ1a0NHd01HQ3drSUJ3TUNCaFVJQWdrS0N3UVdBZ01CQWg0QkFoZUEK
+ QUFvSkVKejlmSkZGd29WWmVQY0VBSm5jRlVzc01zNlJYUG9GMWQyVzZ
+ LaXdtN0ZxQ2V2Z1JDaS9GMEVkK3lpcQpoSDgya3IxVGdwYWxyOU9lcj
+ AzbGRaWVB0Q29NcGVlQ0QxRHZVdlI5VTBMdFJ4K3BJbHcwc0JOZ1VGR
+ 1REc0kxCmdHQ1ZMQXlGSW0wWGdZczRkbk1BcUNLS21sRUFCT0xwN2Q2
+ elNCQm45ckRBT2dDK3NiTzZ2Z0x4NlZTNExBODcKdUkwRVVxOVc2UUV
+ FQU1WMSt4MGJJMUp3MnNXUFk3Nlg5ekN6clBXem5pakRBbHc2VmRZYz
+ JXL0J0ZG1IWDF5agpWcGtRYzg2V3ovWkx5ai9XcWw3dk5YNkFNM3ZhR
+ XRFY3ZSU0x5d0ZDK1pxanZaRFpwQ2hZNUVURVhvVVZEbHg1CkM0azRM
+ K3hvTHV1dSt2RmdBbTN0Y2xNRnhRaVQvb0tBZktHRWJWRjA3OUY1S3U
+ 1NG9kZlRpOS81QUJFQkFBR0kKbndRWUFRSUFDUVVDVXE5VzZRSWJEQU
+ FLQ1JDYy9YeVJSY0tGV1VOQkJBQ0ZWNytlYUMreEtkRy9WSnl5bTZvU
+ wpodlk1K044WEdRek44dzdRZ3gvZUFpa3dPNDczeWNSdmJqS3gzQUcr
+ MDA3UGRtNVVidUlSbkpVQVZXcmNtWWFBCkthbndiNWZJVjlQdXlJQWZ
+ XM2ZaNFI5TkUwckozSGVuak5Jd0RWeVhzMEpoOS9zbzhUMFE3MVBHRm
+ F2RFpoMU4KdncwWDgxSFQwd29PSHJ3UjdjeTZhQT09Cj1VQ3RsCi0tL
+ S0tRU5EIFBHUCBQVUJMSUMgS0VZIEJMT0NLLS0tLS0K
+X-BBDB-ANNIVERSARY:2013-06-15
+X-ABUID:19950401-080045-40000F192713-0052
+:2013-06-15
+
 END:VCARD
-"
- ["John Philip Paul" "Stevenson"
-  ("Dr." "Jr." "M.D." "A.C.P.")
-  ("Robbie")
-  ("ABC, Inc.
+")
+
+(ert-deftest bbdb-vcard-test-rfc2426 ()
+  "The following is made of examples from rfc2426."
+  (bbdb-vcard-test-fixture
+   (progn
+     (bbdb-vcard-test
+      bbdb-vcard-fixture-rfc2426
+      ["John Philip Paul" "Stevenson"
+       ("Dr." "Jr." "M.D." "A.C.P.")
+       ("Robbie")
+       ("ABC, Inc.
 North American Division
 Marketing")
-  (["Office" "+1-213-555-1234"])
-  (["Home"
-    ("123 Main Street")
-    "Any Town"
-    "CA"
-    "91921-1234"
-    ""])
-  ("jqpublic@xyz.dom1.com" "jdoe@isp.net")
-  ((gpg-key-filename . "MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENbW11bmljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0ZW1zMRwwGgYDVQQDExNyb290Y2EubmV0c2NhcGUuY29tMB4XDTk3MDYwNjE5NDc1OVoXDTk3MTIwMzE5NDc1OVowgYkxCzAJBgNVBAYTAlVTMSYwJAYDVQQKEx1OZXRzY2FwZSBDb21tdW5pY2F0aW9ucyBDb3JwLjEYMBYGA1UEAxMPVGltb3RoeSBBIEhvd2VzMSEwHwYJKoZIhvcNAQkBFhJob3dlc0BuZXRzY2FwZS5jb20xFTATBgoJkiaJk/IsZAEBEwVob3dlczBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQC0JZf6wkg8pLMXHHCUvMfL5H6zjSk4vTTXZpYyrdN2dXcoX49LKiOmgeJSzoiFKHtLOIboyludF90CgqcxtwKnAgMBAAGjNjA0MBEGCWCGSAGG+EIBAQQEAwIAoDAfBgNVHSMEGDAWgBT84FToB/GV3jr3mcau+hUMbsQukjANBgkqhkiG9w0BAQQFAAOBgQBexv7o7mi3PLXadkmNP9LcIPmx93HGp0Kgyx1jIVMyNgsemeAwBM+MSlhMfcpbTrONwNjZYW8vJDSoi//yrZlVt9bJbs7MNYZVsyF1unsqaln4/vy6Uawfg8VUMk1U7jt8LYpo4YULU7UZHPYVUaSgVttImOHZIKi4hlPXBOhcUQ==")
-   (uid . "19950401-080045-40000F192713-0052")
-   (sound-filename . "MIICajCCAdOgAwIBAgICBEUwDQYJKoZIhvcNAQEEBQAwdzELMAkGA1UEBhMCVVMxLDAqBgNVBAoTI05ldHNjYXBlIENvbW11bmljYXRpb25zIENvcnBvcmF0aW9uMRwwGgYDVQQLExNJbmZvcm1hdGlvbiBTeXN0")
-   (image-uri . "http://www.abc.com/pub/photos/jqpublic.gif")
-   (mail-alias . "TRAVEL AGENT")
-   (anniversary . "1996-04-15")
-   (notes . "This fax number is operational 0800 to 1715 EST, Mon-Fri.")
-   (url . "http://www.swbyps.restaurant.french/~chezchic.html"))]
- "John"
- nil nil t)))
+       (["work" "+1-213-555-1234"])
+       (["home"
+         ("123 Main Street")
+         "Any Town"
+         "CA"
+         "91921-1234"
+         ""])
+       ("jqpublic@xyz.dom1.com" "jdoe@isp.net")
+       ((gpg-key . "media/key-cf9125ffc23f76f7fcad5351fb5cfbd7682dbbed.asc")
+        (sound . "media/sound-68acd6a12b0cfd51da2e5234016e10307a81f332.snd")
+        (image-uri . "http://www.abc.com/pub/photos/jqpublic.gif")
+        (mail-alias . "TRAVEL AGENT")
+        (vcard-uid . "19950401-080045-40000F192713-0052")
+        (vcard-x-abuid . "19950401-080045-40000F192713-0052")
+        (birthday . "1996-04-15")
+        (anniversary . "2013-06-15")
+        (notes . "This fax number is operational 0800 to 1715 EST, Mon-Fri.")
+        (url . "http://www.swbyps.restaurant.french/~chezchic.html"))]
+      "John"
+      nil nil nil)
 
-
+     ;; import again, this shouldn't change anything
+     (bbdb-vcard-test
+      bbdb-vcard-fixture-rfc2426
+      ["John Philip Paul" "Stevenson"
+       ("Dr." "Jr." "M.D." "A.C.P.")
+       ("Robbie")
+       ("ABC, Inc.
+North American Division
+Marketing")
+       (["work" "+1-213-555-1234"])
+       (["home"
+         ("123 Main Street")
+         "Any Town"
+         "CA"
+         "91921-1234"
+         ""])
+       ("jqpublic@xyz.dom1.com" "jdoe@isp.net")
+       ((gpg-key . "media/key-cf9125ffc23f76f7fcad5351fb5cfbd7682dbbed.asc")
+        (sound . "media/sound-68acd6a12b0cfd51da2e5234016e10307a81f332.snd")
+        (image-uri . "http://www.abc.com/pub/photos/jqpublic.gif")
+        (mail-alias . "TRAVEL AGENT")
+        (vcard-uid . "19950401-080045-40000F192713-0052")
+        (vcard-x-abuid . "19950401-080045-40000F192713-0052")
+        (birthday . "1996-04-15")
+        (anniversary . "2013-06-15")
+        (notes . "This fax number is operational 0800 to 1715 EST, Mon-Fri.")
+        (url . "http://www.swbyps.restaurant.french/~chezchic.html"))]
+      "John"
+      nil nil nil))))
 
 (ert-deftest bbdb-vcard-test-no-type-params ()
   "A vcard without any type parameters."
@@ -459,36 +512,24 @@ END:VCARD
   ("Company1
 Unit1
 Subunit1")
-  (["Office" "+11111111"])
-  (["Office"
+  (["work" "+11111111"])
+  (["work"
     ("Box111" "Room 111" "First Street" "First Corner")
     "Cityone"
     "First State"
     "11111"
     "Country"])
   ("first1@provider1")
-  ((x-foo . "extended type 1")
-   (gpg-key-uri . "The Key No 1")
-   (class . "CONFIDENTIAL")
-   (uid . "111-111-111-111")
+  ((gpg-key-uri . "The Key No 1")
+   (vcard-uid . "111-111-111-111")
    (sound-uri . "Audible1")
-   (sort-string . "aaa000")
-   (prodid . "-//ONLINE DIRECTORY//NONSGML Version 1//EN")
-   (agent . "CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com")
-   (logo . "encoded logo #1")
-   (role . "Programmer")
-   (title . "Director, Research and Development")
-   (geo . "37.386013;-122.082932")
-   (tz . "+01:00")
-   (mailer . "Wanderlust1")
-   (label . "Label 1")
    (image-uri . "The Alphabet:abcdefghijklmnopqrstuvwsyz")
    (mail-alias . "category1")
    (birthday . "1999-12-05")
    (notes . "This vcard uses every type defined in rfc2426.")
    (url . "http://first1.host1.org"))]
  "First1 Last1"
- nil nil t)))
+ nil nil nil)))
 
 
 (ert-deftest bbdb-vcard-test-bad-1 ()
@@ -517,7 +558,8 @@ LOGO:encoded logo #1
 AGENT:CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com
 ORG:Company1;Unit1;Subunit1
 CATEGORIES:category1
-NOTE:This isn't a decent vCard. It shouldn't render our bbdb unusable. We don't expect it to re-import unchanged, though.
+NOTE:This isn't a decent vCard. It shouldn't render our bbdb
+  unusable. We don't expect it to re-import unchanged, though.
 REV:1995-10-31T22:27:10Z
 SORT-STRING:aaa000
 SOUND:Audible1
@@ -530,27 +572,16 @@ END:VCARD
 "
  ["First2" "Last2"
   nil
-  ("First2; Last2" "Firsty2" "or; something")
+  ("Firsty2" "or; something")
   ("Company1
 Unit1
 Subunit1")
-  (["Office" "+11111111;+222222"])
-  (["Office" ("Box111" "Room 111" "First Street" "First Corner") "Cityone" "First State" "11111" "Country"])
+  (["work" "+11111111;+222222"])
+  (["work" ("Box111" "Room 111" "First Street" "First Corner") "Cityone" "First State" "11111" "Country"])
   ("first1@provider1")
-  ((x-foo . "extended type 1")
-   (gpg-key-uri . "The Key No 1")
-   (class . "CONFIDENTIAL")
-   (uid . "111-111-111-111")
+  ((gpg-key-uri . "The Key No 1")
+   (vcard-uid . "111-111-111-111")
    (sound-uri . "Audible1")
-   (sort-string . "aaa000")
-   (agent . "CID:JQPUBLIC.part3.960129T083020.xyzMail@host3.com")
-   (logo . "encoded logo #1")
-   (role . "Programmer")
-   (title . "Director, Research; and Development")
-   (geo . "37.386013;-122.082932")
-   (tz . "+01:00;Here")
-   (mailer . "Wanderlust1;Wanderlust2")
-   (label . "Label 1;Label 2")
    (image-uri . "The Alphabet:abcdefghij;klmnopqrstuvwsyz")
    (mail-alias . "category1")
    (birthday . "1999-12-05")
