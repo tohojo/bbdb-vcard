@@ -226,6 +226,27 @@ END:VCARD")
     '((("content" . ("Smith" "John" nil nil "PhD"))))))))
 
 
+(ert-deftest bbdb-vcard-test-translate ()
+  (should
+   (equal (bbdb-vcard-translate "dom")
+          "home"))
+  (should
+   (equal (bbdb-vcard-translate '("dom" "parcel"))
+          "home"))
+  (should
+   (equal (bbdb-vcard-translate "work")
+          "work"))
+  (should
+   (equal (bbdb-vcard-translate "anything")
+          "anything"))
+  (should
+   (equal (bbdb-vcard-translate nil)
+          "work"))
+  (should
+   (equal (bbdb-vcard-translate "Office" t)
+          "work")))
+
+
 (ert-deftest bbdb-vcard-test-scardize ()
   (should
    (equal (bbdb-vcard-scardize

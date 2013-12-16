@@ -153,10 +153,9 @@ Nil means insert empty types into BBDB."
   :type 'boolean)
 
 (defcustom bbdb-vcard-import-translation-table
-  '(("CELL\\|CAR" . "Mobile")
-    ("WORK" . "Office")
-    ("HOME" . "Home")  ; translates e.g. "dom,home,postal,parcel" to "Home"
-    ("^$" . "Office")) ; acts as a default for parameterless ADR or TEL
+  '(("CELL\\|CAR" . "cell")
+    ("WORK" . "work")
+    ("DOM\\|HOME" . "home"))
   "Label translation on vCard import.
 Alist with translations of location labels for addresses and phone
 numbers.  Cells are (VCARD-LABEL-REGEXP . BBDB-LABEL).  One entry
@@ -422,7 +421,7 @@ When VCARDS is nil, return nil.  Otherwise, return t."
   "Return version number string of VCARD."
   (with-temp-buffer
     (insert vcard)
-    (car (bbdb-vcard-values-of-type "version" "value"))))
+    (car (bbdb-vcard-values-of-type "version" "content"))))
 
 
 (defvar bbdb-vcard-type-spec
@@ -432,7 +431,7 @@ When VCARDS is nil, return nil.  Otherwise, return t."
     ("ORG" * t nil t)
     ("EMAIL" * nil nil t)
     ("TEL" * nil nil t)
-    ("ADDR" * t t t)
+    ("ADR" * t t t)
     ("URL" * nil nil t)
     ("NOTE" * nil nil t)
     ("BDAY" * nil nil t)
@@ -487,11 +486,10 @@ of possible property parameters"
              (mapcar
               (lambda (param)
                 (let ((value
-                       (if list-p
+                       (if (and (equal (car param) "content") list-p)
                            (bbdb-vcard-process-strings
                             (lambda (value)
-                              (bbdb-vcard-split-structured-text
-                               value ","))
+                              (bbdb-vcard-split-structured-text value ","))
                             (cdr param))
                          (cdr param))))
                   (list (car param)
@@ -519,7 +517,7 @@ of possible property parameters"
     (if param
         (cl-remove-if 'null
                       (mapcar (lambda (element)
-                                (assoc param element))
+                                (cadr (assoc param element)))
                               elements))
       elements)))
 
@@ -563,8 +561,8 @@ Extend existing BBDB records where possible."
          (vcard-tels
           (mapcar (lambda (tel)
                     (vector (bbdb-vcard-translate
-                             (or (cdr (assoc "type" tel)) ""))
-                            (cdr (assoc "content" tel))))
+                             (or (cadr (assoc "type" tel)) ""))
+                            (cadr (assoc "content" tel))))
                   (bbdb-vcard-search scard "TEL")))
          ;; Phone numbers to search for in BBDB now:
          (tel-to-search-for
@@ -679,8 +677,8 @@ Extend existing BBDB records where possible."
       (when vcard-photo
         (cond
          ;; inline base64 image
-         ((and (equal "b" (cdr (assoc "encoding" vcard-photo)))
-               (cdr (assoc "value" vcard-photo)))
+         ((and (equal "b" (cadr (assoc "encoding" vcard-photo)))
+               (cadr (assoc "value" vcard-photo)))
           (bbdb-record-set-field
            record 'image-filename
            (bbdb-vcard-import-inline-media vcard-photo)))
@@ -688,12 +686,12 @@ Extend existing BBDB records where possible."
          (t
           (bbdb-record-set-field
            record 'image-uri
-           (bbdb-vcard-unescape-strings (cdr (assoc "content" vcard-photo)))))))
+           (bbdb-vcard-unescape-strings (cadr (assoc "content" vcard-photo)))))))
       (when vcard-key
         (cond
          ;; inline base64 key
-         ((and (equal "b" (cdr (assoc "encoding" vcard-key)))
-               (cdr (assoc "value" vcard-key)))
+         ((and (equal "b" (cadr (assoc "encoding" vcard-key)))
+               (cadr (assoc "value" vcard-key)))
           (bbdb-record-set-field
            record 'gpg-key-filename
            (bbdb-vcard-import-inline-media vcard-key)))
@@ -701,12 +699,12 @@ Extend existing BBDB records where possible."
          (t
           (bbdb-record-set-field
            record 'gpg-key-uri
-           (bbdb-vcard-unescape-strings (cdr (assoc "content" vcard-key)))))))
+           (bbdb-vcard-unescape-strings (cadr (assoc "content" vcard-key)))))))
       (when vcard-sound
         (cond
          ;; inline base64 sound
-         ((and (equal "b" (cdr (assoc "encoding" vcard-sound)))
-               (cdr (assoc "value" vcard-sound)))
+         ((and (equal "b" (cadr (assoc "encoding" vcard-sound)))
+               (cadr (assoc "value" vcard-sound)))
           (bbdb-record-set-field
            record 'sound-filename
            (bbdb-vcard-import-inline-media vcard-sound)))
@@ -714,7 +712,7 @@ Extend existing BBDB records where possible."
          (t
           (bbdb-record-set-field
            record 'sound-uri
-           (bbdb-vcard-unescape-strings (cdr (assoc "content" vcard-sound)))))))
+           (bbdb-vcard-unescape-strings (cadr (assoc "content" vcard-sound)))))))
       (when vcard-categories
         (bbdb-record-set-field
          record 'mail-alias vcard-categories t))
@@ -724,13 +722,7 @@ Extend existing BBDB records where possible."
           ;; Notice other vCards inside the current one.
           (bbdb-vcard-iterate-vcards
            'bbdb-vcard-import-vcard    ; needed for inner v2.1 vCards:
-           (replace-regexp-in-string "\\\\" "" (cdr other-vcard-type))))
-        (unless (or (and bbdb-vcard-skip-on-import
-                         (string-match bbdb-vcard-skip-on-import
-                                       (symbol-name (car other-vcard-type))))
-                    (and bbdb-vcard-skip-valueless
-                         (zerop (length (cdr other-vcard-type)))))
-          (push (bbdb-vcard-remove-x-bbdb other-vcard-type) vcard-xfields)))
+           (replace-regexp-in-string "\\\\" "" (cdr other-vcard-type)))))
       (bbdb-record-set-field
        record 'xfields vcard-xfields t)
       (bbdb-change-record record t t)))
@@ -895,7 +887,9 @@ SPLIT-VALUE-AT-SEMI-COLON-P is non-nil, split the value at key
       (when raw-params
         (while (string-match "\\([^;:=]+\\)=\\([^;:]+\\)" raw-params index)
           (let* ((parameter-key (downcase (match-string 1 raw-params)))
-                 (parameter-value (downcase (match-string 2 raw-params)))
+                 (parameter-value (bbdb-vcard-split-structured-text
+                                   (downcase (match-string 2 raw-params))
+                                   ","))
                  (parameter-sibling (assoc parameter-key parameters)))
             (when parameter-sibling         ; i.e., pair with equal key
                 ;; collect vCard parameter list `;a=x;a=y;a=z'
@@ -1074,13 +1068,28 @@ unchanged."
   "Translate LABEL from vCard to BBDB or, if EXPORTP is non-nil, vice versa.
 Translations are defined in `bbdb-vcard-import-translation-table' and
 `bbdb-vcard-export-translation-table' respectively."
-  (when label
-    (capitalize
-     (or (assoc-default label
-                        (if exportp
-                            bbdb-vcard-export-translation-table
-                          bbdb-vcard-import-translation-table) 'string-match)
-         label))))
+  (if exportp
+      (capitalize
+       (or (assoc-default label
+                          bbdb-vcard-export-translation-table
+                          'string-match)
+           label))
+    (if label
+        (cl-block escape
+          (let* ((tokens (if (stringp label)
+                             (list label)
+                           label))
+                 (default (car tokens)))
+            (while tokens
+              (let* ((token (pop tokens))
+                 (result
+                  (assoc-default token
+                                 bbdb-vcard-import-translation-table
+                                 'string-match)))
+                (when result
+                  (return-from escape result))))
+            default))
+      "work")))
 
 (defun bbdb-vcard-merge-strings (old-string new-strings separator)
   "Merge strings successively from list NEW-STRINGS into OLD-STRING.
