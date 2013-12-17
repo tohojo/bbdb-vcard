@@ -42,7 +42,7 @@ install-docs: bbdb-vcard.info
 	$(CP) COPYING README.md $(DESTDIR)$(docdir)
 
 test: $(ELCS) test-bbdb-vcard.el
-	$(BATCH) -l bbdb-vcard -l test-bbdb-vcard.el --execute '(ert-run-tests-batch-and-exit t)'
+	$(BATCH) -q -l bbdb -l bbdb-vcard -l test-bbdb-vcard.el --execute '(ert-run-tests-batch-and-exit t)'
 
 clean:
 	rm -f *.elc bbdb-vcard.info
