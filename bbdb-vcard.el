@@ -288,12 +288,24 @@ to `bbdb-image-path'."
     (setq bbdb-image #'bbdb-vcard-image-basename)))
 
 ;;;###autoload
-(defun bbdb-vcard-import-region (begin end)
+(defun bbdb-vcard-import-region (begin end &optional source-name)
   "Import the vCards between BEGIN and END into BBDB.
 Existing BBDB records may be altered."
   (interactive "r")
-  (bbdb-vcard-iterate-vcards 'bbdb-vcard-import-vcard
-                             (buffer-substring-no-properties begin end)))
+  (let ((results
+         (cl-remove-if 'null
+                       (bbdb-vcard-iterate-vcards
+                        'bbdb-vcard-import-vcard
+                        (buffer-substring-no-properties begin end)))))
+    (cond
+     ((and (null results) source-name)
+      (message "No vCard objects were found in %s" source-name))
+     ((null results)
+      (message "No vCard objects were found in region"))
+     ((= (length results) 1)
+      (message "Imported 1 vCard object into BBDB"))
+     (t
+      (message "Imported %s vCard objects into BBDB" (length results))))))
 
 ;;;###autoload
 (defun bbdb-vcard-import-buffer (vcard-buffer)
@@ -301,18 +313,17 @@ Existing BBDB records may be altered."
 Existing BBDB records may be altered."
   (interactive (list (current-buffer)))
   (set-buffer vcard-buffer)
-  (bbdb-vcard-import-region (point-min) (point-max)))
+  (bbdb-vcard-import-region (point-min) (point-max) (buffer-name vcard-buffer)))
 
 ;;;###autoload
 (defun bbdb-vcard-import-file (vcard-file)
   "Import vCards from VCARD-FILE into BBDB.
 If VCARD-FILE is a wildcard, import each matching file.  Existing BBDB
 records may be altered."
-  (interactive "vCard file (or wildcard): ")
-  (dolist (vcard-file (file-expand-wildcards vcard-file))
+  (interactive "fvCard file: ")
     (with-temp-buffer
       (insert-file-contents vcard-file)
-      (bbdb-vcard-import-region (point-min) (point-max)))))
+      (bbdb-vcard-import-region (point-min) (point-max) vcard-file)))
 
 ;;;###autoload
 (defun bbdb-vcard-export
@@ -403,7 +414,8 @@ When VCARDS is nil, return nil.  Otherwise, return t."
     ;; endings.
     (while (re-search-forward "\r\n" nil t)
       (replace-match "\n" nil nil nil 1))
-    (let ((vcards-normalized (bbdb-vcard-unfold-lines (buffer-string))))
+    (let ((vcards-normalized (bbdb-vcard-unfold-lines (buffer-string)))
+          (results nil))
       (erase-buffer)
       (insert vcards-normalized)
       (goto-char (point-min))
@@ -412,10 +424,12 @@ When VCARDS is nil, return nil.  Otherwise, return t."
               nil t)
         (let ((vcard (match-string 0)))
           (if (string= "3.0" (bbdb-vcard-version-of vcard))
-              (funcall vcard-processor vcard)
-            (funcall vcard-processor      ; probably a v2.1 vCard
-                     (bbdb-vcard-unfold-lines
-                      (bbdb-vcard-convert-to-3.0 vcard)))))))))
+              (push (funcall vcard-processor vcard) results)
+            (push (funcall vcard-processor      ; probably a v2.1 vCard
+                           (bbdb-vcard-unfold-lines
+                            (bbdb-vcard-convert-to-3.0 vcard)))
+                  results))))
+      results)))
 
 (defun bbdb-vcard-version-of (vcard)
   "Return version number string of VCARD."
@@ -551,13 +565,21 @@ of possible property parameters"
     name-search))
 
 (defun bbdb-vcard-import-vcard (vcard)
+  (condition-case-unless-debug err
+      (bbdb-vcard-import-vcard-internal vcard)
+    ((error nil)
+     (progn
+       (message "Error encountered while parsing vcard: %s" err)
+       nil))))
+
+(defun bbdb-vcard-import-vcard-internal (vcard)
   "Store VCARD (version 3.0) in BBDB.
 Extend existing BBDB records where possible."
   (let* ((scard (bbdb-vcard-scardize vcard))
          (raw-name (car (bbdb-vcard-search scard "N" "content")))
          (name-components (bbdb-vcard-unvcardize-name raw-name))
          (vcard-formatted-name (car (bbdb-vcard-search scard "FN" "content")))
-         ;; Name suitable for storing in BBDB
+             ;; Name suitable for storing in BBDB
          (name (if (or (nth 0 name-components)
                        (nth 1 name-components))
                    (cons (nth 0 name-components)
@@ -737,7 +759,8 @@ Extend existing BBDB records where possible."
            (replace-regexp-in-string "\\\\" "" (cdr other-vcard-type)))))
       (bbdb-record-set-field
        record 'xfields vcard-xfields t)
-      (bbdb-change-record record t t)))
+      (bbdb-change-record record t t)
+      record))
 
 (defun bbdb-vcard-import-media (record field-fn field-uri vcard-media)
   (if (and (equal "b" (cadr (assoc "encoding" vcard-media)))
