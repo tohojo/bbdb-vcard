@@ -612,7 +612,7 @@ Extend existing BBDB records where possible."
            (bbdb-addresses (bbdb-record-address bbdb-record))
            (bbdb-phones (bbdb-record-phone bbdb-record))
            (bbdb-nets (bbdb-record-mail bbdb-record))
-           (bbdb-raw-notes (bbdb-record-Notes bbdb-record))
+           (bbdb-raw-notes (bbdb-record-xfields bbdb-record))
            notes
            other-vcard-type)
       (bbdb-vcard-elements-of-type "BEGIN")   ; get rid of delimiter
@@ -683,7 +683,7 @@ Extend existing BBDB records where possible."
                     (and bbdb-vcard-skip-valueless
                          (zerop (length (cdr other-vcard-type)))))
           (push (bbdb-vcard-remove-x-bbdb other-vcard-type) bbdb-raw-notes)))
-      (bbdb-record-set-Notes
+      (bbdb-record-set-xfields
        bbdb-record
        (remove-duplicates bbdb-raw-notes :test 'equal :from-end t))
       (bbdb-change-record bbdb-record t t)
@@ -708,7 +708,7 @@ Extend existing BBDB records where possible."
            (addresses (bbdb-record-address record))
            (www (bbdb-get-field record 'www))
            (notes
-            (bbdb-vcard-split-structured-text (bbdb-record-notes record)
+            (bbdb-vcard-split-structured-text (bbdb-record-xfields record)
                                               ";\n" t))
            (raw-anniversaries (bbdb-vcard-split-structured-text
                                (bbdb-get-field record 'anniversary) "\n" t))
