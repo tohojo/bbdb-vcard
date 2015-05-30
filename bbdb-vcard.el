@@ -688,6 +688,24 @@ Extend existing BBDB records where possible."
                      (bbdb-vcard-search-intersection
                       (bbdb-records)
                       name-to-search-for nil nil nil tel-to-search-for)))
+           ;; (f) if only match name; import with a new name, which format
+           ;;     is: <name>-imported-<time-string>
+           ;;     use can merge it by hand.
+           (and bbdb-vcard-try-merge
+                (bbdb-vcard-search-intersection
+                 (bbdb-records)
+                 name-to-search-for)
+                (let ((time-string (format-time-string "%Y%m%d-%T" nil t)))
+                  (if (stringp name)
+                      (setq name (concat name "-imported-" time-string))
+                    (setq name
+                          (cons (car name)
+                                (concat (cdr name) "-imported-" time-string)))))
+                ;; Nickname merging conflict easily at this situation,
+                ;; so we don't merge nickname.
+                ;; NOTE: this should be improved.
+                (setq vcard-nicknames nil)
+                nil)
            ;; No existing record found; make a fresh one:
            (let ((record (make-vector bbdb-record-length nil)))
              (bbdb-record-set-cache record (make-vector bbdb-cache-length nil))
