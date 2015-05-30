@@ -211,6 +211,10 @@ numbers.  Cells are (BBDB-LABEL-REGEXP . VCARD-LABEL)."
   :group 'bbdb-vcard
   :type 'symbol)
 
+(defcustom bbdb-vcard-export-addition-pruned-fields nil
+  "The bbdb fields list need to be pruned when export."
+  :group 'bbdb-vcard)
+
 (defcustom bbdb-vcard-default-dir "~/exported-vcards/"
   "Default storage directory for exported vCards.
 Nil means current directory."
@@ -591,9 +595,18 @@ Extend existing BBDB records where possible."
          (name-to-search-for
           (when raw-name (if (stringp raw-name)
                              raw-name
-                           (concat (nth 1 raw-name) ; given name
-                                   " .*"
-                                   (nth 0 raw-name))))) ; family name
+                           (let* ((given-name (nth 1 raw-name))
+                                  (family-name (nth 0 raw-name))
+                                  (separator
+                                   (if (or (not given-name)  ; if given-name or family-name
+                                           (not family-name) ; is `nil', whitespace is needless.
+                                           ;; No whitespace needed between
+                                           ;; given-name and family-name for CJK users.
+                                           (string-match-p "\\cc" (or given-name ""))
+                                           (string-match-p "\\cc" (or family-name "")))
+                                       ".*"
+                                     " .*")))
+                             (concat given-name separator family-name)))))
          (vcard-nicknames
           (bbdb-vcard-flatten (bbdb-vcard-search scard "NICKNAME" "content")))
          ;; Organization suitable for storing in BBDB:
@@ -679,6 +692,24 @@ Extend existing BBDB records where possible."
                      (bbdb-vcard-search-intersection
                       (bbdb-records)
                       name-to-search-for nil nil nil tel-to-search-for)))
+           ;; (f) if only match name; import with a new name, which format
+           ;;     is: <name>-imported-<time-string>
+           ;;     use can merge it by hand.
+           (and bbdb-vcard-try-merge
+                (bbdb-vcard-search-intersection
+                 (bbdb-records)
+                 name-to-search-for)
+                (let ((time-string (format-time-string "%Y%m%d-%T" nil t)))
+                  (if (stringp name)
+                      (setq name (concat name "-imported-" time-string))
+                    (setq name
+                          (cons (car name)
+                                (concat (cdr name) "-imported-" time-string)))))
+                ;; Nickname merging conflict easily at this situation,
+                ;; so we don't merge nickname.
+                ;; NOTE: this should be improved.
+                (setq vcard-nicknames nil)
+                nil)
            ;; No existing record found; make a fresh one:
            (let ((record (make-vector bbdb-record-length nil)))
              (bbdb-record-set-cache record (make-vector bbdb-cache-length nil))
@@ -859,7 +890,8 @@ list ((A B C) D (E F)), the result would be (A B C D E F)"
        (bbdb-join (bbdb-vcard-escape-strings
                    (bbdb-vcard-split-structured-text mail-aliases "," t)) ","))
       ;; prune raw-notes...
-      (dolist (key '(url notes anniversary mail-alias creation-date timestamp))
+      (dolist (key `(url notes anniversary mail-alias creation-date timestamp
+                         ,@bbdb-vcard-export-addition-pruned-fields))
         (setq raw-notes (assq-delete-all key raw-notes)))
       ;; ... and output what's left
       (dolist (raw-note raw-notes)
