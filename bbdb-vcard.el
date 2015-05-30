@@ -591,9 +591,18 @@ Extend existing BBDB records where possible."
          (name-to-search-for
           (when raw-name (if (stringp raw-name)
                              raw-name
-                           (concat (nth 1 raw-name) ; given name
-                                   " .*"
-                                   (nth 0 raw-name))))) ; family name
+                           (let* ((given-name (nth 1 raw-name))
+                                  (family-name (nth 0 raw-name))
+                                  (separator
+                                   (if (or (not given-name)  ; if given-name or family-name
+                                           (not family-name) ; is `nil', whitespace is needless.
+                                           ;; No whitespace needed between
+                                           ;; given-name and family-name for CJK users.
+                                           (string-match-p "\\cc" (or given-name ""))
+                                           (string-match-p "\\cc" (or family-name "")))
+                                       ".*"
+                                     " .*")))
+                             (concat given-name separator family-name)))))
          (vcard-nicknames
           (bbdb-vcard-flatten (bbdb-vcard-search scard "NICKNAME" "content")))
          ;; Organization suitable for storing in BBDB:
