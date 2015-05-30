@@ -211,6 +211,10 @@ numbers.  Cells are (BBDB-LABEL-REGEXP . VCARD-LABEL)."
   :group 'bbdb-vcard
   :type 'symbol)
 
+(defcustom bbdb-vcard-export-addition-pruned-fields nil
+  "The bbdb fields list need to be pruned when export."
+  :group 'bbdb-vcard)
+
 (defcustom bbdb-vcard-default-dir "~/exported-vcards/"
   "Default storage directory for exported vCards.
 Nil means current directory."
@@ -886,7 +890,8 @@ list ((A B C) D (E F)), the result would be (A B C D E F)"
        (bbdb-join (bbdb-vcard-escape-strings
                    (bbdb-vcard-split-structured-text mail-aliases "," t)) ","))
       ;; prune raw-notes...
-      (dolist (key '(url notes anniversary mail-alias creation-date timestamp))
+      (dolist (key `(url notes anniversary mail-alias creation-date timestamp
+                         ,@bbdb-vcard-export-addition-pruned-fields))
         (setq raw-notes (assq-delete-all key raw-notes)))
       ;; ... and output what's left
       (dolist (raw-note raw-notes)
