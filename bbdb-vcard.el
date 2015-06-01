@@ -221,6 +221,13 @@ Nil means current directory."
   :group 'bbdb-vcard
   :type '(choice directory (const :tag "Current directory" nil)))
 
+(defcustom bbdb-vcard-use-fullname nil
+  "Use fullname by concat given-name and family-name,
+if user's BBDB datebase don't depart fullname to firstname and lastname
+mostly, setting this variable to `t' can reduce merge conflicts."
+  :group 'bbdb-vcard
+  :type 'function)
+
 (defvar bbdb-vcard-media-directory
   (file-name-as-directory "media")
   "The relative subdirectory under `bbdb-vcard-directory' where
@@ -576,6 +583,18 @@ of possible property parameters"
        (message "Error encountered while parsing vcard: %s" err)
        nil))))
 
+(defun bbdb-vcard-generate-fullname (given-name family-name)
+  "Generate fullname by concat `given-name' and `family-name'.
+This function will be called when `bbdb-vcard-use-fullname'
+set to `t'"
+  (let ((given-name (or given-name ""))
+        (family-name  (or family-name "")))
+    (cond
+     ((and (string-match-p "\\cc" given-name)
+           (string-match-p "\\cc" family-name))
+      (concat family-name given-name))
+     (t (concat given-name " " family-name)))))
+
 (defun bbdb-vcard-import-vcard-internal (vcard)
   "Store VCARD (version 3.0) in BBDB.
 Extend existing BBDB records where possible."
@@ -589,6 +608,11 @@ Extend existing BBDB records where possible."
                    (cons (nth 0 name-components)
                          (nth 1 name-components))
                  vcard-formatted-name))
+         (name (if (and bbdb-vcard-use-fullname
+                        (not (stringp raw-name)))
+                   (bbdb-vcard-generate-fullname
+                    (nth 0 name-components)
+                    (nth 1 name-components))))
          ;; Affixes suitable for storing in BBDB
          (vcard-affixes (nth 2 name-components))
          ;; Name to search for in BBDB now:
@@ -606,7 +630,8 @@ Extend existing BBDB records where possible."
                                            (string-match-p "\\cc" (or family-name "")))
                                        ".*"
                                      " .*")))
-                             (concat given-name separator family-name)))))
+                             (concat "\\(" given-name separator family-name "\\)\\|"
+                                     "\\(" family-name separator given-name "\\)")))))
          (vcard-nicknames
           (bbdb-vcard-flatten (bbdb-vcard-search scard "NICKNAME" "content")))
          ;; Organization suitable for storing in BBDB:
