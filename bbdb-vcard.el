@@ -140,11 +140,10 @@ The major part increases on user-visible changes.")
   :set-after '(user-emacs-directory)
 )
 
-(defcustom bbdb-vcard-skip-on-import "X-GSM-"
-  "Regexp describing vCard elements that are to be discarded during import.
-Example: `X-GSM-\\|X-MS-'."
-  :group 'bbdb-vcard
-  :type 'regexp)
+(defcustom bbdb-vcard-skip-on-import '("^X-GSM-")
+  "Regexps-list describing vCard elements that are to be discarded during import.
+For example: (\"^X-GSM-\" \"^X-MS-\")"
+  :group 'bbdb-vcard)
 
 (defcustom bbdb-vcard-skip-valueless t
   "Skip vCard element types with an empty value.
@@ -541,13 +540,26 @@ of possible property parameters"
            (bbdb-vcard-elements-of-type name nil structured-p)))))
 
 (defun bbdb-vcard-search (scard type &optional param)
-  (let ((elements (cadr (assoc type scard))))
-    (if param
-        (cl-remove-if 'null
-                      (mapcar (lambda (element)
-                                (cadr (assoc param element)))
-                              elements))
-      elements)))
+  "Search bbdb records from `scard' by `type' and `param'.
+if `type' name match `bbdb-vcard-skip-on-import' or its
+elements (when it is a regexps-list), return `nil'."
+  (let* ((elements (cadr (assoc type scard)))
+         (regexps bbdb-vcard-skip-on-import)
+         (skip-import-p
+          (if (stringp regexps)
+              (string-match-p regexps type)
+            (cl-some
+             #'(lambda (regexp)
+                 (when regexp
+                   (string-match-p regexp type)))
+             regexps))))
+    (unless skip-import-p
+      (if param
+          (cl-remove-if 'null
+                        (mapcar (lambda (element)
+                                  (cadr (assoc param element)))
+                                elements))
+        elements))))
 
 (defmacro bbdb-vcard-search-intersection
   (records &optional name organization mail xfields phone)
