@@ -140,11 +140,15 @@ The major part increases on user-visible changes.")
   :set-after '(user-emacs-directory)
 )
 
-(defcustom bbdb-vcard-skip-on-import "X-GSM-"
-  "Regexp describing vCard elements that are to be discarded during import.
-Example: `X-GSM-\\|X-MS-'."
-  :group 'bbdb-vcard
-  :type 'regexp)
+(defcustom bbdb-vcard-skip-on-import '("^X-GSM-")
+  "Regexps-list describing vCard elements that are to be discarded during import.
+For example: (\"^X-GSM-\" \"^X-MS-\")"
+  :group 'bbdb-vcard)
+
+(defcustom bbdb-vcard-skip-on-export nil
+  "Regexp-list describing bbdb fields that are to be discarded during export.
+Example: `(\"field1\\|field2\" \"field3\")'."
+  :group 'bbdb-vcard)
 
 (defcustom bbdb-vcard-skip-valueless t
   "Skip vCard element types with an empty value.
@@ -211,10 +215,6 @@ numbers.  Cells are (BBDB-LABEL-REGEXP . VCARD-LABEL)."
   :group 'bbdb-vcard
   :type 'symbol)
 
-(defcustom bbdb-vcard-export-addition-pruned-fields nil
-  "The bbdb fields list need to be pruned when export."
-  :group 'bbdb-vcard)
-
 (defcustom bbdb-vcard-default-dir "~/exported-vcards/"
   "Default storage directory for exported vCards.
 Nil means current directory."
@@ -238,7 +238,7 @@ media objects are stored")
   "Returns the image filename (sans suffix), for a record.
 This is meant to be bound to `bbdb-image', so that BBBD can lookup the
 image for the record."
-  (let ((image-filename (bbdb-record-field record 'image-filename)))
+  (let ((image-filename (bbdb-vcard-bbdb-record-field record 'image-filename)))
     (if image-filename
         (file-name-base image-filename)
       nil)))
@@ -541,13 +541,26 @@ of possible property parameters"
            (bbdb-vcard-elements-of-type name nil structured-p)))))
 
 (defun bbdb-vcard-search (scard type &optional param)
-  (let ((elements (cadr (assoc type scard))))
-    (if param
-        (cl-remove-if 'null
-                      (mapcar (lambda (element)
-                                (cadr (assoc param element)))
-                              elements))
-      elements)))
+  "Search bbdb records from `scard' by `type' and `param'.
+if `type' name match `bbdb-vcard-skip-on-import' or its
+elements (when it is a regexps-list), return `nil'."
+  (let* ((elements (cadr (assoc type scard)))
+         (regexps bbdb-vcard-skip-on-import)
+         (skip-import-p
+          (if (stringp regexps)
+              (string-match-p regexps type)
+            (cl-some
+             #'(lambda (regexp)
+                 (when regexp
+                   (string-match-p regexp type)))
+             regexps))))
+    (unless skip-import-p
+      (if param
+          (cl-remove-if 'null
+                        (mapcar (lambda (element)
+                                  (cadr (assoc param element)))
+                                elements))
+        elements))))
 
 (defmacro bbdb-vcard-search-intersection
   (records &optional name organization mail xfields phone)
@@ -748,8 +761,8 @@ Extend existing BBDB records where possible."
             (bbdb-record-set-field record 'firstname (car name))
             (bbdb-record-set-field record 'lastname (cdr name)))))
       (when vcard-nicknames
-        (let* ((fn (bbdb-record-field record 'firstname))
-               (ln (bbdb-record-field record 'lastname))
+        (let* ((fn (bbdb-vcard-bbdb-record-field record 'firstname))
+               (ln (bbdb-vcard-bbdb-record-field record 'lastname))
                (aka
                 (nreverse
                  (cl-set-difference
@@ -837,43 +850,67 @@ list ((A B C) D (E F)), the result would be (A B C D E F)"
                              obj))
                          objects)))
 
+(defun bbdb-vcard-bbdb-record-field (record field)
+  "For bbdb RECORD return the value of FIELD, if `field' name match
+`bbdb-vcard-skip-on-export' or its elements (when it is a regexp list),
+return `nil'."
+  (let* ((field-name (symbol-name field))
+         (regexps bbdb-vcard-skip-on-export)
+         (skip-export-p
+          (if (stringp regexps)
+              (string-match-p regexps field-name)
+            (cl-some
+             #'(lambda (regexp)
+                 (when regexp
+                   (string-match-p regexp field-name)))
+             regexps))))
+    (unless skip-export-p
+      (bbdb-record-field record field))))
+
 (defun bbdb-vcard-from (record)
   "Return BBDB RECORD as a vCard."
   (with-temp-buffer
-    (let* ((name (bbdb-record-field record 'name))
-           (first-name (bbdb-record-field record 'firstname))
-           (last-name (bbdb-record-field record 'lastname))
-           (aka (bbdb-record-field record 'aka))
-           (organization (bbdb-record-field record 'organization))
-           (net (bbdb-record-field record 'mail))
-           (phones (bbdb-record-field record 'phone))
-           (addresses (bbdb-record-field record 'address))
-           (url (bbdb-record-field record 'url))
-           (notes (bbdb-record-field record 'notes))
-           (raw-anniversaries (bbdb-vcard-split-structured-text
-                               (bbdb-record-field record 'anniversary) "\n" t))
+    (let* ((name (bbdb-vcard-bbdb-record-field record 'name))
+           (first-name (bbdb-vcard-bbdb-record-field record 'firstname))
+           (last-name (bbdb-vcard-bbdb-record-field record 'lastname))
+           (aka (bbdb-vcard-bbdb-record-field record 'aka))
+           (organization (bbdb-vcard-bbdb-record-field record 'organization))
+           (net (bbdb-vcard-bbdb-record-field record 'mail))
+           (phones (bbdb-vcard-bbdb-record-field record 'phone))
+           (addresses (bbdb-vcard-bbdb-record-field record 'address))
+           (url (bbdb-vcard-bbdb-record-field record 'url))
+           (notes (bbdb-vcard-bbdb-record-field record 'notes))
+           (raw-anniversaries
+            (let ((anniversary (bbdb-vcard-bbdb-record-field record 'anniversary)))
+              (when anniversary
+                (bbdb-vcard-split-structured-text anniversary "\n" t))))
            (birthday-regexp
             "\\([0-9]\\{4\\}-[01][0-9]-[0-3][0-9][t:0-9]*[-+z:0-9]*\\)\\([[:blank:]]+birthday\\)?\\'")
            (birthday
-            (car (bbdb-vcard-split-structured-text
-                  (cl-find-if (lambda (x) (string-match birthday-regexp x))
-                           raw-anniversaries)
-                  " " t)))
+            (when raw-anniversaries
+              (car (bbdb-vcard-split-structured-text
+                    (cl-find-if (lambda (x) (string-match birthday-regexp x))
+                                raw-anniversaries)
+                    " " t))))
            (other-anniversaries
-            (cl-remove-if (lambda (x) (string-match birthday-regexp x))
-                       raw-anniversaries :count 1))
-           (timestamp (bbdb-record-field record 'timestamp))
-           (mail-aliases (bbdb-record-field record 'mail-alias))
+            (when raw-anniversaries
+              (cl-remove-if (lambda (x) (string-match birthday-regexp x))
+                            raw-anniversaries :count 1)))
+           (timestamp (bbdb-vcard-bbdb-record-field record 'timestamp))
+           (mail-aliases (bbdb-vcard-bbdb-record-field record 'mail-alias))
            (raw-notes (copy-alist (bbdb-record-xfields record))))
       (bbdb-vcard-insert-vcard-element "BEGIN" "VCARD")
       (bbdb-vcard-insert-vcard-element "VERSION" "3.0")
-      (bbdb-vcard-insert-vcard-element "FN" (bbdb-vcard-escape-strings name))
-      (bbdb-vcard-insert-vcard-element
-       "N" (bbdb-vcard-escape-strings last-name)
-       ";" (bbdb-vcard-escape-strings first-name)
-       ";;;") ; Additional Names, Honorific Prefixes, Honorific Suffixes
-      (bbdb-vcard-insert-vcard-element
-       "NICKNAME" (bbdb-join (bbdb-vcard-escape-strings aka) ","))
+      (when name
+        (bbdb-vcard-insert-vcard-element "FN" (bbdb-vcard-escape-strings name)))
+      (when (or last-name first-name)
+        (bbdb-vcard-insert-vcard-element
+         "N" (bbdb-vcard-escape-strings last-name)
+         ";" (bbdb-vcard-escape-strings first-name)
+         ";;;")) ; Additional Names, Honorific Prefixes, Honorific Suffixes
+      (when aka
+        (bbdb-vcard-insert-vcard-element
+         "NICKNAME" (bbdb-join (bbdb-vcard-escape-strings aka) ",")))
       (dolist (org organization)
         (bbdb-vcard-insert-vcard-element
          "ORG" (bbdb-vcard-escape-strings org)))
@@ -904,25 +941,31 @@ list ((A B C) D (E F)), the result would be (A B C D E F)"
               (bbdb-vcard-escape-strings (bbdb-address-postcode address)))
          ";" (bbdb-vcard-vcardize-address-element
               (bbdb-vcard-escape-strings (bbdb-address-country address)))))
-      (bbdb-vcard-insert-vcard-element "URL" url)
-      (bbdb-vcard-insert-vcard-element "NOTE" (bbdb-vcard-escape-strings notes))
-      (bbdb-vcard-insert-vcard-element "BDAY" birthday)
-      (bbdb-vcard-insert-vcard-element  ; non-birthday anniversaries
-       "X-BBDB-ANNIVERSARY" (bbdb-join other-anniversaries "\\n"))
-      (bbdb-vcard-insert-vcard-element "REV" timestamp)
-      (bbdb-vcard-insert-vcard-element
-       "CATEGORIES"
-       (bbdb-join (bbdb-vcard-escape-strings
-                   (bbdb-vcard-split-structured-text mail-aliases "," t)) ","))
-      ;; prune raw-notes...
-      (dolist (key `(url notes anniversary mail-alias creation-date timestamp
-                         ,@bbdb-vcard-export-addition-pruned-fields))
+      (when url
+        (bbdb-vcard-insert-vcard-element "URL" url))
+      (when notes
+        (bbdb-vcard-insert-vcard-element "NOTE" (bbdb-vcard-escape-strings notes)))
+      (when birthday
+        (bbdb-vcard-insert-vcard-element "BDAY" birthday))
+      (when other-anniversaries
+        (bbdb-vcard-insert-vcard-element  ; non-birthday anniversaries
+         "X-BBDB-ANNIVERSARY" (bbdb-join other-anniversaries "\\n")))
+      (when timestamp
+        (bbdb-vcard-insert-vcard-element "REV" timestamp))
+      (when mail-aliases
+        (bbdb-vcard-insert-vcard-element
+         "CATEGORIES"
+         (bbdb-join (bbdb-vcard-escape-strings
+                     (bbdb-vcard-split-structured-text mail-aliases "," t)) ",")))
+      ;; If fields have been export, prune from raw-notes ...
+      (dolist (key `(url notes anniversary mail-alias creation-date timestamp))
         (setq raw-notes (assq-delete-all key raw-notes)))
       ;; ... and output what's left
       (dolist (raw-note raw-notes)
-        (bbdb-vcard-insert-vcard-element
-         (symbol-name (bbdb-vcard-prepend-x-bbdb-maybe (car raw-note)))
-         (bbdb-vcard-escape-strings (cdr raw-note))))
+        (when raw-note
+          (bbdb-vcard-insert-vcard-element
+           (symbol-name (bbdb-vcard-prepend-x-bbdb-maybe (car raw-note)))
+           (bbdb-vcard-escape-strings (cdr raw-note)))))
       (bbdb-vcard-insert-vcard-element "END" "VCARD")
       (bbdb-vcard-insert-vcard-element nil)) ; newline
     (buffer-string)))
