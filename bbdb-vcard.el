@@ -744,15 +744,23 @@ Extend existing BBDB records where possible."
            ;;     is: <name>-imported-<time-string>
            ;;     use can merge it by hand.
            (and bbdb-vcard-try-merge
-                (bbdb-vcard-search-intersection
-                 (bbdb-records)
-                 name-to-search-for)
-                (let ((time-string (format-time-string "%Y%m%d-%T" nil t)))
-                  (if (stringp name)
-                      (setq name (concat name "-imported-" time-string))
-                    (setq name
-                          (cons (car name)
-                                (concat (cdr name) "-imported-" time-string)))))
+                (or (bbdb-vcard-search-intersection
+                     (bbdb-records)
+                     name-to-search-for)
+                    (bbdb-vcard-search-intersection
+                     (bbdb-records)
+                     nil nil email-to-search-for)
+                    (bbdb-vcard-search-intersection
+                     (bbdb-records)
+                     nil nil nil nil tel-to-search-for))
+                ;; Rename name to <orig-formatted-name>-<timestring>
+                (setq name (concat (or vcard-formatted-name
+                                       (bbdb-vcard-generate-bbdb-name
+                                        (nth 0 name-components)
+                                        (nth 1 name-components)
+                                        vcard-formatted-name)
+                                       "???")
+                                   (format-time-string "(imported-%M%S)" nil t)))
                 ;; Nickname merging conflict easily at this situation,
                 ;; so we don't merge nickname.
                 ;; NOTE: this should be improved.
