@@ -221,12 +221,16 @@ Nil means current directory."
   :group 'bbdb-vcard
   :type '(choice directory (const :tag "Current directory" nil)))
 
-(defcustom bbdb-vcard-use-fullname nil
-  "Use fullname by concat given-name and family-name,
-if user's BBDB datebase don't depart fullname to firstname and lastname
-mostly, setting this variable to `t' can reduce merge conflicts."
-  :group 'bbdb-vcard
-  :type 'function)
+(defcustom bbdb-vcard-name-imported-priority
+  '(first-last formated-name bbdb-vcard-generate-bbdb-name)
+  "Set which name should be store into bbdb database when import a vcard.
+the valid name first found will be used.
+
+User can add a function into this list, the return value of function will
+regard as a candidate of bbdb name. first-name, last-name and formated-name
+of vcard will be inputed as arguments. user can see reference function:
+`bbdb-vcard-generate-bbdb-name'."
+  :group 'bbdb-vcard)
 
 (defvar bbdb-vcard-media-directory
   (file-name-as-directory "media")
@@ -596,17 +600,16 @@ elements (when it is a regexps-list), return `nil'."
        (message "Error encountered while parsing vcard: %s" err)
        nil))))
 
-(defun bbdb-vcard-generate-fullname (given-name family-name)
-  "Generate fullname by concat `given-name' and `family-name'.
-This function will be called when `bbdb-vcard-use-fullname'
-set to `t'"
-  (let ((given-name (or given-name ""))
-        (family-name  (or family-name "")))
+(defun bbdb-vcard-generate-bbdb-name (first-name last-name formated-name)
+  "Generate bbdb name depend on `first-name', `last-name' and `formated-name',
+Please see also `bbdb-vcard-name-imported-priority'."
+  (let ((first-name (or first-name ""))
+        (last-name  (or last-name "")))
     (cond
-     ((and (string-match-p "\\cc" given-name)
-           (string-match-p "\\cc" family-name))
-      (concat family-name given-name))
-     (t (concat given-name " " family-name)))))
+     ((and (string-match-p "\\cc" first-name)
+           (string-match-p "\\cc" last-name))
+      (concat last-name first-name))
+     (t (concat first-name " " last-name)))))
 
 (defun bbdb-vcard-import-vcard-internal (vcard)
   "Store VCARD (version 3.0) in BBDB.
@@ -615,17 +618,24 @@ Extend existing BBDB records where possible."
          (raw-name (car (bbdb-vcard-search scard "N" "content")))
          (name-components (bbdb-vcard-unvcardize-name raw-name))
          (vcard-formatted-name (car (bbdb-vcard-search scard "FN" "content")))
-             ;; Name suitable for storing in BBDB
-         (name (if (or (nth 0 name-components)
-                       (nth 1 name-components))
-                   (cons (nth 0 name-components)
-                         (nth 1 name-components))
-                 vcard-formatted-name))
-         (name (if (and bbdb-vcard-use-fullname
-                        (not (stringp raw-name)))
-                   (bbdb-vcard-generate-fullname
-                    (nth 0 name-components)
-                    (nth 1 name-components))))
+         ;; Name suitable for storing in BBDB
+         (name (cl-find-if
+                #'(lambda (x)
+                    (if (stringp x)
+                        (> (length x) 0)
+                      (or (nth 0 x) (nth 1 x))))
+                (mapcar
+                 #'(lambda (x)
+                     (cond
+                      ((eq x 'first-last)
+                       (cons (nth 0 name-components)
+                             (nth 1 name-components)))
+                      ((eq x 'formated-name) vcard-formatted-name)
+                      ((functionp x)
+                       (funcall x (nth 0 name-components)
+                                (nth 1 name-components)
+                                vcard-formatted-name))))
+                 bbdb-vcard-name-imported-priority)))
          ;; Affixes suitable for storing in BBDB
          (vcard-affixes (nth 2 name-components))
          ;; Name to search for in BBDB now:
