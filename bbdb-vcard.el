@@ -611,10 +611,12 @@ Please see also `bbdb-vcard-name-imported-priority'."
       (concat last-name first-name))
      (t (concat first-name " " last-name)))))
 
-(defun bbdb-vcard-import-vcard-internal (vcard)
+(defun bbdb-vcard-import-vcard-internal (vcard-or-scard)
   "Store VCARD (version 3.0) in BBDB.
 Extend existing BBDB records where possible."
-  (let* ((scard (bbdb-vcard-scardize vcard))
+  (let* ((scard (if (stringp vcard-or-scard)
+                    (bbdb-vcard-scardize vcard-or-scard)
+                  vcard-or-scard))
          (raw-name (car (bbdb-vcard-search scard "N" "content")))
          (name-components (bbdb-vcard-unvcardize-name raw-name))
          (vcard-formatted-name (car (bbdb-vcard-search scard "FN" "content")))
