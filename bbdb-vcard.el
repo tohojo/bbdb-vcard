@@ -625,7 +625,7 @@ Extend existing BBDB records where possible."
                 #'(lambda (x)
                     (if (stringp x)
                         (> (length x) 0)
-                      (or (nth 0 x) (nth 1 x))))
+                      (or (car x) (cdr x))))
                 (mapcar
                  #'(lambda (x)
                      (cond
