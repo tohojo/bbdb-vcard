@@ -638,6 +638,18 @@ Extend existing BBDB records where possible."
                                 (nth 1 name-components)
                                 vcard-formatted-name))))
                  bbdb-vcard-name-imported-priority)))
+         ;; A unique name, which will replace origin name
+         ;; when encounter "need-solved-by-hand" conflict.
+         (name-used-mark-conflict
+          (concat "@Conflict"
+                  (format-time-string "%M%S" nil t)
+                  "@-"
+                  (or vcard-formatted-name
+                      (bbdb-vcard-generate-bbdb-name
+                       (nth 0 name-components)
+                       (nth 1 name-components)
+                       vcard-formatted-name)
+                      "???")))
          ;; Affixes suitable for storing in BBDB
          (vcard-affixes (nth 2 name-components))
          ;; Name to search for in BBDB now:
@@ -653,12 +665,13 @@ Extend existing BBDB records where possible."
                                            ;; given-name and family-name for CJK users.
                                            (string-match-p "\\cc" (or given-name ""))
                                            (string-match-p "\\cc" (or family-name "")))
-                                       ".*"
-                                     " .*")))
-                             (concat "\\(" given-name separator family-name "\\)\\|"
-                                     "\\(" family-name separator given-name "\\)")))))
+                                       " *"
+                                     " +")))
+                             (concat "^\\(" given-name separator family-name "\\)$\\|"
+                                     "^\\(" family-name separator given-name "\\)$")))))
          (vcard-nicknames
           (bbdb-vcard-flatten (bbdb-vcard-search scard "NICKNAME" "content")))
+         (vcard-nicknames-backup nil)
          ;; Organization suitable for storing in BBDB:
          (vcard-org
           (mapcar (lambda (org)
@@ -673,6 +686,7 @@ Extend existing BBDB records where possible."
           (when vcard-email
             (concat "\\(" (bbdb-join vcard-email "\\)\\|\\(") "\\)")))
          ;; Phone numbers suitable for storing in BBDB:
+         (vcard-email-backup nil)
          (vcard-tels
           (mapcar (lambda (tel)
                     (vector (bbdb-vcard-translate (cadr (assoc "type" tel)))
@@ -685,6 +699,7 @@ Extend existing BBDB records where possible."
                     (mapconcat (lambda (x) (elt x 1))
                                vcard-tels "\\)\\|\\(")
                     "\\)")))
+         (vcard-tels-backup nil)
          ;; Addresses
          (vcard-adrs
           (mapcar 'bbdb-vcard-unvcardize-adr
@@ -746,41 +761,51 @@ Extend existing BBDB records where possible."
            ;;     is: <name>-imported-<time-string>
            ;;     use can merge it by hand.
            (and bbdb-vcard-try-merge
-                (or (bbdb-vcard-search-intersection
-                     (bbdb-records)
-                     name-to-search-for)
-                    (bbdb-vcard-search-intersection
-                     (bbdb-records)
-                     nil nil email-to-search-for)
-                    (bbdb-vcard-search-intersection
-                     (bbdb-records)
-                     nil nil nil nil tel-to-search-for))
-                ;; Rename name to <orig-formatted-name>-<timestring>
-                (setq name (concat (or vcard-formatted-name
-                                       (bbdb-vcard-generate-bbdb-name
-                                        (nth 0 name-components)
-                                        (nth 1 name-components)
-                                        vcard-formatted-name)
-                                       "???")
-                                   (format-time-string "(imported-%M%S)" nil t)))
-                ;; Nickname merging conflict easily at this situation,
-                ;; so we don't merge nickname.
-                ;; NOTE: this should be improved.
-                (setq vcard-nicknames nil)
-                nil)
+                (let ((name-exist-p
+                       (bbdb-vcard-search-intersection
+                        (bbdb-records)
+                        name-to-search-for))
+                      (email-exist-p
+                       (bbdb-vcard-search-intersection
+                        (bbdb-records)
+                        nil nil email-to-search-for))
+                      (tels-exist-p
+                       (bbdb-vcard-search-intersection
+                        (bbdb-records)
+                        nil nil nil nil tel-to-search-for)))
+                  (when (or name-exist-p email-exist-p tels-exist-p)
+                    ;; When encounter contacts conflict which must resolved by hand.
+                    ;; we rename origin contact name to a unique name.
+                    (setq name name-used-mark-conflict)
+                    (setq vcard-nicknames-backup t))
+                  (when email-exist-p
+                    ;; When current imported email is existed BBDB database,
+                    ;; We will backup it in new bbdb field: backup-mail,
+                    ;; Which can tell user to merge by hand in BBDB buffer.
+                    (setq vcard-email-backup t))
+                  (when tels-exist-p
+                    ;; When current imported phone is existed BBDB database,
+                    ;; We will backup it in new bbdb field: backup-phone,
+                    ;; Which can tell user to merge by hand in BBDB buffer.
+                    (setq vcard-tels-backup t))
+                  nil))
            ;; No existing record found; make a fresh one:
            (let ((record (make-vector bbdb-record-length nil)))
              (bbdb-record-set-cache record (make-vector bbdb-cache-length nil))
              (run-hook-with-args 'bbdb-create-hook record)
              (bbdb-change-record record t t)
              record))))
-      (when name
-        (if (stringp name)
-            (bbdb-record-set-field record 'name name)
-          (progn
-            (bbdb-record-set-field record 'firstname (car name))
-            (bbdb-record-set-field record 'lastname (cdr name)))))
-      (when vcard-nicknames
+    (when name
+      (if (stringp name)
+          (bbdb-record-set-field record 'name name)
+        (progn
+          (bbdb-record-set-field record 'firstname (car name))
+          (bbdb-record-set-field record 'lastname (cdr name)))))
+    (when vcard-nicknames
+      (if vcard-nicknames-backup
+          (bbdb-record-set-field record 'backup-aka
+                                 (mapconcat #'identity vcard-nicknames ", ")
+                                 t)
         (let* ((fn (bbdb-vcard-bbdb-record-field record 'firstname))
                (ln (bbdb-vcard-bbdb-record-field record 'lastname))
                (aka
@@ -790,66 +815,77 @@ Extend existing BBDB records where possible."
                              (list vcard-nicknames))
                   (list (concat fn " " ln) fn ln)
                   :test 'string=))))
-          (bbdb-record-set-field record 'aka aka t)))
-      (when vcard-affixes
-        (bbdb-record-set-field
-         record 'affix vcard-affixes t))
-      (when vcard-org
-        (bbdb-record-set-field
-         record 'organization vcard-org t))
-      (when vcard-email
-        (bbdb-record-set-field
-         record 'mail vcard-email t))
-      (when vcard-adrs
-        (bbdb-record-set-field
-         record 'address vcard-adrs t))
-      (when vcard-tels
-        (bbdb-record-set-field
-         record 'phone vcard-tels t))
-      (when vcard-url
-        (bbdb-record-set-field
-         record 'url vcard-url t))
-      (when vcard-notes
-        (bbdb-record-set-field
-         record 'notes vcard-notes t))
-      (when vcard-bday
-        (bbdb-record-set-field
-         record 'birthday vcard-bday t))
-      (when vcard-bday
-        (bbdb-record-set-field
-         record 'birthday vcard-bday t))
-      (when vcard-x-bbdb-weddings
-        (bbdb-record-set-field
-         record 'wedding vcard-x-bbdb-weddings t))
-      (when vcard-x-bbdb-anniversaries
-        (bbdb-record-set-field
-         record 'anniversary vcard-x-bbdb-anniversaries t))
-      (when vcard-photo
-        (bbdb-vcard-import-media record 'image 'image-uri vcard-photo))
-      (when vcard-key
-        (bbdb-vcard-import-media record 'gpg-key 'gpg-key-uri vcard-key))
-      (when vcard-sound
-        (bbdb-vcard-import-media record 'sound 'sound-uri vcard-sound))
-      (when vcard-categories
-        (bbdb-record-set-field
-         record 'mail-alias vcard-categories t))
-      (when vcard-uid
-        (bbdb-record-set-field
-         record 'vcard-uid vcard-uid t))
-      (when vcard-x-abuid
-        (bbdb-record-set-field
-         record 'vcard-x-abuid vcard-x-abuid t))
-      (while nil
-        (when (string-match "^\\([[:alnum:]-]*\\.\\)?AGENT"
-                            (symbol-name (car other-vcard-type)))
-          ;; Notice other vCards inside the current one.
-          (bbdb-vcard-iterate-vcards
-           'bbdb-vcard-import-vcard    ; needed for inner v2.1 vCards:
-           (replace-regexp-in-string "\\\\" "" (cdr other-vcard-type)))))
+          (bbdb-record-set-field record 'aka aka t))))
+    (when vcard-affixes
       (bbdb-record-set-field
-       record 'xfields vcard-xfields t)
-      (bbdb-change-record record t t)
-      record))
+       record 'affix vcard-affixes t))
+    (when vcard-org
+      (bbdb-record-set-field
+       record 'organization vcard-org t))
+    (when vcard-email
+      (if vcard-email-backup
+          (bbdb-record-set-field record 'backup-mail
+                                 (mapconcat #'identity vcard-email ", ")
+                                 t)
+        (bbdb-record-set-field
+         record 'mail vcard-email t)))
+    (when vcard-adrs
+      (bbdb-record-set-field
+       record 'address vcard-adrs t))
+    (when vcard-tels
+      (if vcard-tels-backup
+          (bbdb-record-set-field record 'backup-phone
+                                 (mapconcat
+                                  #'(lambda (x)
+                                      (elt x 1))
+                                  vcard-tels ", ")
+                                 t)
+        (bbdb-record-set-field
+         record 'phone vcard-tels t)))
+    (when vcard-url
+      (bbdb-record-set-field
+       record 'url vcard-url t))
+    (when vcard-notes
+      (bbdb-record-set-field
+       record 'notes vcard-notes t))
+    (when vcard-bday
+      (bbdb-record-set-field
+       record 'birthday vcard-bday t))
+    (when vcard-bday
+      (bbdb-record-set-field
+       record 'birthday vcard-bday t))
+    (when vcard-x-bbdb-weddings
+      (bbdb-record-set-field
+       record 'wedding vcard-x-bbdb-weddings t))
+    (when vcard-x-bbdb-anniversaries
+      (bbdb-record-set-field
+       record 'anniversary vcard-x-bbdb-anniversaries t))
+    (when vcard-photo
+      (bbdb-vcard-import-media record 'image 'image-uri vcard-photo))
+    (when vcard-key
+      (bbdb-vcard-import-media record 'gpg-key 'gpg-key-uri vcard-key))
+    (when vcard-sound
+      (bbdb-vcard-import-media record 'sound 'sound-uri vcard-sound))
+    (when vcard-categories
+      (bbdb-record-set-field
+       record 'mail-alias vcard-categories t))
+    (when vcard-uid
+      (bbdb-record-set-field
+       record 'vcard-uid vcard-uid t))
+    (when vcard-x-abuid
+      (bbdb-record-set-field
+       record 'vcard-x-abuid vcard-x-abuid t))
+    (while nil
+      (when (string-match "^\\([[:alnum:]-]*\\.\\)?AGENT"
+                          (symbol-name (car other-vcard-type)))
+        ;; Notice other vCards inside the current one.
+        (bbdb-vcard-iterate-vcards
+         'bbdb-vcard-import-vcard    ; needed for inner v2.1 vCards:
+         (replace-regexp-in-string "\\\\" "" (cdr other-vcard-type)))))
+    (bbdb-record-set-field
+     record 'xfields vcard-xfields t)
+    (bbdb-change-record record t t)
+    record))
 
 (defun bbdb-vcard-import-media (record field-fn field-uri vcard-media)
   (if (and (equal "b" (cadr (assoc "encoding" vcard-media)))
