@@ -650,6 +650,7 @@ Extend existing BBDB records where possible."
                        (nth 1 name-components)
                        vcard-formatted-name)
                       "???")))
+         (name-need-manual-edit-p nil)
          ;; Affixes suitable for storing in BBDB
          (vcard-affixes (nth 2 name-components))
          ;; Name to search for in BBDB now:
@@ -776,7 +777,7 @@ Extend existing BBDB records where possible."
                   (when (or name-exist-p email-exist-p tels-exist-p)
                     ;; When encounter contacts conflict which must resolved by hand.
                     ;; we rename origin contact name to a unique name.
-                    (setq name name-used-mark-conflict)
+                    (setq name-need-manual-edit-p t)
                     (setq vcard-nicknames-backup t))
                   (when email-exist-p
                     ;; When current imported email is existed BBDB database,
@@ -795,6 +796,11 @@ Extend existing BBDB records where possible."
              (run-hook-with-args 'bbdb-create-hook record)
              (bbdb-change-record record t t)
              record))))
+    (when name-need-manual-edit-p
+      (message (format "Need edit by hand: %S in your *contacts source* and %S in your *BBDB buffer*."
+                       name
+                       name-used-mark-conflict))
+      (setq name name-used-mark-conflict))
     (when name
       (if (stringp name)
           (bbdb-record-set-field record 'name name)
