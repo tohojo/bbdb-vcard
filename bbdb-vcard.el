@@ -416,8 +416,10 @@ the *BBDB* buffer."
     (kill-new (bbdb-vcard-from (bbdb-current-record nil)))
     (message "Saved record as vCard")))
 
-(define-key bbdb-mode-map [(v)] 'bbdb-vcard-export)
-(define-key bbdb-mode-map [(V)] 'bbdb-vcard-export-to-kill-ring)
+(defun bbdb-vcard-default-keybindings ()
+  "Assign the default bbdb-vcard keybindings."
+  (define-key bbdb-mode-map [(v)] 'bbdb-vcard-export)
+  (define-key bbdb-mode-map [(V)] 'bbdb-vcard-export-to-kill-ring))
 
 (defun bbdb-vcard-iterate-vcards (vcard-processor vcards)
   "Apply VCARD-PROCESSOR successively to each vCard in string VCARDS.
