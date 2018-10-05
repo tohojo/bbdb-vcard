@@ -31,10 +31,32 @@ Import and export of vCards as defined in RFC 2425 and RFC 2426
 to/from The Insidious Big Brother Database (BBDB).
 
 @menu
+* Setup::
 * Import Contacts::
 * Export Contacts::
 * Implementation::
 @end menu
+
+@node Setup
+@chapter Setup
+
+Put this file and file vcard.el into your @code{load-path} and add the
+following line to your Emacs initialization file:
+
+@lisp
+(require 'bbdb-vcard)
+(bbdb-vcard-default-keybindings) ; optional, binds v/V keys in bbdb
+@end lisp
+
+@noindent If you use @code{use-package} for deferred loading, you may prefer:
+
+@lisp
+(use-package bbdb-vcard
+  :ensure t    ; get it from Melpa
+  :after bbdb  ; defer until bbdb loaded
+  :config      ; bind v/V keys
+  (bbdb-vcard-default-keybindings))
+@end lisp
 
 @node Import Contacts
 @chapter Import Contacts
