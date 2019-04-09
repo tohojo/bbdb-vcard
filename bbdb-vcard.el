@@ -1003,8 +1003,9 @@ return `nil'."
               (bbdb-vcard-escape-strings (bbdb-address-state address)))
          ";" (bbdb-vcard-vcardize-address-element
               (bbdb-vcard-escape-strings (bbdb-address-postcode address)))
-         ";" (bbdb-vcard-vcardize-address-element
-              (bbdb-vcard-escape-strings (bbdb-address-country address)))))
+         ";" (when (bbdb-address-country address)
+	       (bbdb-vcard-vcardize-address-element
+		(bbdb-vcard-escape-strings (bbdb-address-country address))))))
       (when url
         (bbdb-vcard-insert-vcard-element "URL" url))
       (when notes
