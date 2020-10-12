@@ -8,7 +8,7 @@
 ;;         Steve Purcell
 ;;         Vincent Geddes <vincent.geddes@gmail.com>
 ;; Keywords: data calendar mail news
-;; URL: http://github.com/vgeddes/bbdb-vcard
+;; URL: https://github.com/tohojo/bbdb-vcard
 ;; Package-Requires: ((bbdb "3.0"))
 ;; Version: 0.4.1
 

@@ -55,7 +55,7 @@ command will install bbdb-vcard (and its dependencies).
 
 First, checkout the repository:
 ```sh
-git clone git://github.com/vgeddes/bbdb-vcard.git
+git clone https://github.com/tohojo/bbdb-vcard.git
 ```
 
 Use the included Makefile to compile and install the package. By default
