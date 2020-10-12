@@ -793,10 +793,7 @@ Extend existing BBDB records where possible."
                     (setq vcard-tels-backup t))
                   nil))
            ;; No existing record found; make a fresh one:
-           (let ((record (make-vector bbdb-record-length nil)))
-             (bbdb-record-set-cache record (make-vector bbdb-cache-length nil))
-             (run-hook-with-args 'bbdb-create-hook record)
-             (bbdb-change-record record t t)
+           (let ((record (bbdb-empty-record)))
              record))))
     (when name-need-manual-edit-p
       (message (format "Need edit by hand: %S in your *contacts source* and %S in your *BBDB buffer*."
