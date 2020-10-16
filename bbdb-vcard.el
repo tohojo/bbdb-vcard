@@ -143,12 +143,14 @@ The major part increases on user-visible changes.")
 (defcustom bbdb-vcard-skip-on-import '("^X-GSM-")
   "Regexps-list describing vCard elements that are to be discarded during import.
 For example: (\"^X-GSM-\" \"^X-MS-\")"
-  :group 'bbdb-vcard)
+  :group 'bbdb-vcard
+  :type '(repeat regexp))
 
 (defcustom bbdb-vcard-skip-on-export nil
   "Regexp-list describing bbdb fields that are to be discarded during export.
 Example: `(\"field1\\|field2\" \"field3\")'."
-  :group 'bbdb-vcard)
+  :group 'bbdb-vcard
+  :type '(repeat regexp))
 
 (defcustom bbdb-vcard-skip-valueless t
   "Skip vCard element types with an empty value.
@@ -230,7 +232,8 @@ User can add a function into this list, the return value of function will
 regard as a candidate of bbdb name. first-name, last-name and formated-name
 of vcard will be inputed as arguments. user can see reference function:
 `bbdb-vcard-generate-bbdb-name'."
-  :group 'bbdb-vcard)
+  :group 'bbdb-vcard
+  :type '(repeat (choice symbol function)))
 
 (defvar bbdb-vcard-media-directory
   (file-name-as-directory "media")
