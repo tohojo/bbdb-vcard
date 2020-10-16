@@ -1,4 +1,4 @@
-;;; vcard.el --- vcard parsing and display routines
+;;; bbdb-vcard-vcard21.el --- vcard parsing and display routines
 
 ;; Copyright (C) 1997, 1999, 2000 Noah S. Friedman
 
@@ -700,6 +700,5 @@ presentation buffer."
       (setq strings (cdr strings)))
     maxlen))
 
-(provide 'vcard)
-
-;;; vcard.el ends here.
+(provide 'bbdb-vcard-vcard21)
+;;; bbdb-vcard-vcard21.el ends here

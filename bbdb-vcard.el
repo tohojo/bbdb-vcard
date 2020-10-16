@@ -117,7 +117,7 @@
 
 (require 'cl-lib)
 (require 'bbdb)
-(require 'vcard)
+(require 'bbdb-vcard-vcard21)
 (require 'bbdb-com)
 
 (defconst bbdb-vcard-version "0.4.1"
