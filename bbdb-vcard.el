@@ -433,7 +433,7 @@ When VCARDS is nil, return nil.  Otherwise, return t."
     ;; Change CRLF into CR if necessary, dealing with inconsistent line
     ;; endings.
     (while (re-search-forward "\r\n" nil t)
-      (replace-match "\n" nil nil nil 1))
+      (replace-match "\n"))
     (let ((vcards-normalized (bbdb-vcard-unfold-lines (buffer-string)))
           (results nil))
       (erase-buffer)
