@@ -737,7 +737,17 @@ Extend existing BBDB records where possible."
          (vcard-photo (car (bbdb-vcard-search scard "PHOTO")))
          (vcard-sound (car (bbdb-vcard-search scard "SOUND")))
          (vcard-key (car (bbdb-vcard-search scard "KEY")))
-         (vcard-xfields nil)
+         (vcard-xfields (cl-remove-if
+                         'null
+                         (mapcar
+                          (lambda (spec)
+                            (if (and (string-prefix-p "X-BBDB-" (car spec))
+                                     (not (string= "X-BBDB-ANNIVERSARY" (car spec)))
+                                     (not (string= "X-BBDB-WEDDING" (car spec))))
+                                `(,(intern (downcase (string-remove-prefix "X-BBDB-" (car spec))))
+                                  . ,(cadaar (bbdb-vcard-search scard (car spec))))
+                              nil))
+                          bbdb-vcard-type-spec)))
          (record
           (or
            ;; (a) try organization and mail and name:
