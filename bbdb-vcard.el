@@ -458,7 +458,7 @@ When VCARDS is nil, return nil.  Otherwise, return t."
     (car (bbdb-vcard-values-of-type "version" "content"))))
 
 
-(defvar bbdb-vcard-type-spec
+(defcustom bbdb-vcard-type-spec
   '(("FN" * nil nil t)
     ("N" * t t t)
     ("NICKNAME" * nil t t)
@@ -484,7 +484,9 @@ entry, STRUCTURED-P indicates that the value is structured and each component is
 separated by ';'. LIST-P indicates that the value is a list of text items,
 separated by ','. If both STRUCTURED-P and LIST-P are non-nil, then the
 value is considered a structured value where each component is a
-list of text items. if UNESCAPE-P is non-nil the value is unescaped")
+list of text items. if UNESCAPE-P is non-nil the value is unescaped"
+  :group 'bbdb-vcard
+  :type '(repeat sexp))
 
 
 (defun bbdb-vcard-scardize (vcard)
