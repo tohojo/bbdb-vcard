@@ -103,7 +103,7 @@
 ;; | ROLE                    | Xfields<role                            |
 ;; | AGENT                   | Xfields<agent                           |
 ;; | MAILER                  | Xfields<mailer                          |
-;; | UID                     | Xfields<uid                             |
+;; | UID                     | Xfields<vcard-uid                       |
 ;; | PRODID                  | Xfields<prodid                          |
 ;; | CLASS                   | Xfields<class                           |
 ;; | X-BBDB-FOO              | Xfields<foo                             |
@@ -944,6 +944,7 @@ return `nil'."
            (addresses (bbdb-vcard-bbdb-record-field record 'address))
            (url (bbdb-vcard-bbdb-record-field record 'url))
            (notes (bbdb-vcard-bbdb-record-field record 'notes))
+           (vcard-uid (bbdb-vcard-bbdb-record-field record 'vcard-uid))
            (raw-anniversaries
             (let ((anniversary (bbdb-vcard-bbdb-record-field record 'anniversary)))
               (when anniversary
@@ -1022,8 +1023,10 @@ return `nil'."
          "CATEGORIES"
          (bbdb-join (bbdb-vcard-escape-strings
                      (bbdb-vcard-split-structured-text mail-aliases "," t)) ",")))
+      (when vcard-uid
+        (bbdb-vcard-insert-vcard-element "UID" vcard-uid))
       ;; If fields have been export, prune from raw-notes ...
-      (dolist (key `(url notes anniversary mail-alias creation-date timestamp))
+      (dolist (key `(url notes anniversary mail-alias creation-date timestamp vcard-uid))
         (setq raw-notes (assq-delete-all key raw-notes)))
       ;; ... and output what's left
       (dolist (raw-note raw-notes)
