@@ -949,6 +949,7 @@ return `nil'."
     (let* ((name (bbdb-vcard-bbdb-record-field record 'name))
            (first-name (bbdb-vcard-bbdb-record-field record 'firstname))
            (last-name (bbdb-vcard-bbdb-record-field record 'lastname))
+           (affix (bbdb-vcard-bbdb-record-field record 'affix))
            (aka (bbdb-vcard-bbdb-record-field record 'aka))
            (organization (bbdb-vcard-bbdb-record-field record 'organization))
            (net (bbdb-vcard-bbdb-record-field record 'mail))
@@ -984,7 +985,13 @@ return `nil'."
         (bbdb-vcard-insert-vcard-element
          "N" (bbdb-vcard-escape-strings last-name)
          ";" (bbdb-vcard-escape-strings first-name)
-         ";;;")) ; Additional Names, Honorific Prefixes, Honorific Suffixes
+         ";" ; Additional Names
+         ";" (if (and affix (car affix))
+                 (car affix)
+               "")
+         ";" (if (and affix (cadr affix))
+                 (cadr affix)
+               "")))
       (when aka
         (bbdb-vcard-insert-vcard-element
          "NICKNAME" (bbdb-join (bbdb-vcard-escape-strings aka) ",")))
